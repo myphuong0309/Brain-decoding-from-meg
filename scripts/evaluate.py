@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 
 import argparse
 import torch
 import numpy as np
-from pytorch_lightning import Trainer
+from glob import glob
 from sklearn.metrics import (
     accuracy_score, 
     precision_recall_fscore_support,
@@ -19,7 +19,7 @@ import json
 import matplotlib.pyplot as plt
 import seaborn as sns
 from models.model import BrainSpeechClassifier
-from utils.processed_data import get_dataloaders
+from utils.processed_data import get_test_dataloader
 
 
 def load_checkpoint(checkpoint_path):
@@ -33,25 +33,19 @@ def load_checkpoint(checkpoint_path):
 def evaluate_model(model, dataloader, device='cuda'):
     """Run inference and collect predictions"""
     model = model.to(device)
-    all_preds = []
-    all_labels = []
     all_logits = []
+    all_labels = []
     
     with torch.no_grad():
         for batch in dataloader:
             x, y = batch
             x = x.to(device)
-            y = y.to(device)
             
             logits = model(x)
-            probs = torch.sigmoid(logits)
-            preds = (probs > 0.5).long().squeeze()
-            
-            all_logits.extend(logits.cpu().numpy().flatten())
-            all_preds.extend(preds.cpu().numpy().flatten())
-            all_labels.extend(y.cpu().numpy().flatten())
+            all_logits.append(logits.cpu().numpy())
+            all_labels.extend(y.numpy().flatten())
     
-    return np.array(all_preds), np.array(all_labels), np.array(all_logits)
+    return np.concatenate(all_logits, axis=0), np.array(all_labels)
 
 
 def compute_metrics(y_true, y_pred, y_logits):
@@ -136,7 +130,7 @@ def plot_roc_curve(fpr, tpr, roc_auc, save_path):
     
     plt.figure(figsize=(8, 6))
     plt.plot(fpr, tpr, color='darkorange', lw=2, 
-             label=f'ROC curve (AUC = {roc_auc:.3f})')
+             label=f'ROC curve (AUC = {roc_auc:.3f}')
     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
@@ -187,44 +181,87 @@ def print_metrics(metrics):
     print("="*60 + "\n")
 
 
-def evaluate_fold(checkpoint_path, args, fold):
-    """Evaluate a single fold"""
-    print(f"\n{'='*60}")
-    print(f"Evaluating Fold {fold}")
-    print(f"{'='*60}")
+def find_all_checkpoints(ckpt_base_path):
+    """Find all checkpoint files from all folds"""
+    checkpoint_pattern = os.path.join(ckpt_base_path, "fold_*", "**", "*.ckpt")
+    checkpoints = glob(checkpoint_pattern, recursive=True)
+    return sorted(checkpoints)
+
+
+def main(args):
+    """Main evaluation function - ensemble evaluation on test set"""
+    print(f"Starting ensemble test set evaluation...")
+    print(f"Checkpoint base path: {args.ckpt_path}")
+    print(f"Output directory: {args.output_dir}")
     
-    # Load model
-    model = load_checkpoint(checkpoint_path)
+    os.makedirs(args.output_dir, exist_ok=True)
     
-    # Get dataloader
-    _, val_loader = get_dataloaders(
+    # Find all checkpoints
+    if args.checkpoint_paths:
+        checkpoint_paths = args.checkpoint_paths
+        print(f"Using specified checkpoints: {len(checkpoint_paths)} models")
+    else:
+        checkpoint_paths = find_all_checkpoints(args.ckpt_path)
+        print(f"Found {len(checkpoint_paths)} checkpoints")
+    
+    if not checkpoint_paths:
+        raise ValueError(f"No checkpoints found in {args.ckpt_path}")
+    
+    # Display checkpoint paths
+    for i, ckpt in enumerate(checkpoint_paths, 1):
+        print(f"  [{i}] {ckpt}")
+    
+    # Get test dataloader
+    print("\n" + "="*60)
+    print("EVALUATING ON TEST SET (Sherlock1 Sessions 11-12)")
+    print(f"Using {len(checkpoint_paths)} model(s) - Ensemble Mode")
+    print("="*60)
+    
+    test_loader = get_test_dataloader(
         data_path=args.data_path,
         num_workers=4,
-        fold=fold,
-        n_splits=args.n_splits,
-        train_batch_size=args.eval_batch_size,
         eval_batch_size=args.eval_batch_size,
         n_input=args.model_input_size,
         path_norm_global_channel_zscore=args.path_norm_global_channel_zscore
     )
     
-    # Run evaluation
+    # Run evaluation on all models
     device = 'cuda' if torch.cuda.is_available() and not args.cpu else 'cpu'
-    print(f"Using device: {device}")
+    print(f"Using device: {device}\n")
     
-    y_pred, y_true, y_logits = evaluate_model(model, val_loader, device)
+    all_logits = []
+    y_true = None
+    
+    for i, checkpoint_path in enumerate(checkpoint_paths, 1):
+        print(f"Evaluating fold {i}/{len(checkpoint_paths)}...")
+        model = load_checkpoint(checkpoint_path)
+        logits, labels = evaluate_model(model, test_loader, device)
+        all_logits.append(logits)
+        
+        if y_true is None:
+            y_true = labels
+    
+    # Ensemble: average logits from all models
+    print(f"\nEnsembling predictions from {len(all_logits)} folds...")
+    ensemble_logits = np.mean(all_logits, axis=0).flatten()
+    
+    # Convert to predictions
+    ensemble_probs = torch.sigmoid(torch.tensor(ensemble_logits)).numpy()
+    y_pred = (ensemble_probs > 0.5).astype(int)
     
     # Compute metrics
-    metrics, (fpr, tpr, thresholds) = compute_metrics(y_true, y_pred, y_logits)
+    metrics, (fpr, tpr, thresholds) = compute_metrics(y_true, y_pred, ensemble_logits)
     
     # Print metrics
     print_metrics(metrics)
     
     # Save results
-    output_dir = os.path.join(args.output_dir, f"fold_{fold}")
+    output_dir = os.path.join(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
     
     # Save metrics as JSON
+    metrics['num_models'] = len(checkpoint_paths)
+    metrics['checkpoint_paths'] = checkpoint_paths
     metrics_path = os.path.join(output_dir, "metrics.json")
     with open(metrics_path, 'w') as f:
         json.dump(metrics, f, indent=2)
@@ -239,104 +276,18 @@ def evaluate_fold(checkpoint_path, args, fold):
         roc_path = os.path.join(output_dir, "roc_curve.png")
         plot_roc_curve(fpr, tpr, metrics['roc_auc'], roc_path)
     
-    return metrics
-
-
-def aggregate_fold_results(all_fold_metrics, args):
-    """Aggregate results across all folds"""
-    print(f"\n{'='*60}")
-    print("AGGREGATED RESULTS ACROSS ALL FOLDS")
-    print(f"{'='*60}")
-    
-    # Compute mean and std for each metric
-    metric_names = ['accuracy', 'precision', 'recall', 'f1', 'f1_macro', 
-                   'precision_macro', 'recall_macro', 'roc_auc']
-    
-    aggregated = {}
-    for metric_name in metric_names:
-        values = [m[metric_name] for m in all_fold_metrics if m[metric_name] is not None]
-        if values:
-            aggregated[metric_name] = {
-                'mean': float(np.mean(values)),
-                'std': float(np.std(values)),
-                'values': [float(v) for v in values]
-            }
-    
-    # Print aggregated results
-    for metric_name, stats in aggregated.items():
-        print(f"{metric_name:20s}: {stats['mean']:.4f} ± {stats['std']:.4f}")
-    
-    # Save aggregated results
-    agg_path = os.path.join(args.output_dir, "aggregated_metrics.json")
-    with open(agg_path, 'w') as f:
-        json.dump(aggregated, f, indent=2)
-    print(f"\nAggregated metrics saved to: {agg_path}")
-    
-    return aggregated
-
-
-def main(args):
-    """Main evaluation function"""
-    print(f"Starting evaluation...")
-    print(f"Checkpoint path: {args.ckpt_path}")
-    print(f"Output directory: {args.output_dir}")
-    
-    os.makedirs(args.output_dir, exist_ok=True)
-    
-    all_fold_metrics = []
-    
-    if args.fold is not None:
-        # Evaluate single fold
-        checkpoint_path = args.checkpoint_path
-        if checkpoint_path is None:
-            raise ValueError("--checkpoint_path is required when evaluating a single fold")
-        
-        metrics = evaluate_fold(checkpoint_path, args, args.fold)
-        all_fold_metrics.append(metrics)
-    else:
-        # Evaluate all folds
-        for fold in range(args.n_splits):
-            # Find checkpoint for this fold
-            fold_dir = args.ckpt_path
-            
-            # Look for checkpoint files in fold directory
-            checkpoint_candidates = []
-            for root, dirs, files in os.walk(fold_dir):
-                if f"fold_{fold}" in root:
-                    for file in files:
-                        if file.endswith('.ckpt'):
-                            checkpoint_candidates.append(os.path.join(root, file))
-            
-            if not checkpoint_candidates:
-                print(f"Warning: No checkpoint found for fold {fold}, skipping...")
-                continue
-            
-            # Use the first checkpoint found (or you can add logic to select best)
-            checkpoint_path = checkpoint_candidates[0]
-            print(f"Using checkpoint: {checkpoint_path}")
-            
-            try:
-                metrics = evaluate_fold(checkpoint_path, args, fold)
-                all_fold_metrics.append(metrics)
-            except Exception as e:
-                print(f"Error evaluating fold {fold}: {e}")
-                continue
-    
-    # Aggregate results if multiple folds
-    if len(all_fold_metrics) > 1:
-        aggregate_fold_results(all_fold_metrics, args)
-    
-    print("\nEvaluation complete!")
+    print(f"\nEnsemble test set evaluation complete!")
+    print(f"Used {len(checkpoint_paths)} folds for ensemble prediction")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate Brain Speech Classifier")
+    parser = argparse.ArgumentParser(description="Ensemble Evaluation on Test Set")
     
     # Model and checkpoint arguments
-    parser.add_argument("--checkpoint_path", type=str, default=None,
-                       help="Path to specific checkpoint file (for single fold evaluation)")
-    parser.add_argument("--ckpt_path", type=str, default="./",
-                       help="Base path for checkpoints (for multi-fold evaluation)")
+    parser.add_argument("--checkpoint_paths", nargs='+', type=str, default=None,
+                       help="Paths to specific checkpoint files (if not provided, auto-detect all)")
+    parser.add_argument("--ckpt_path", type=str, default="./output",
+                       help="Base path to search for checkpoints")
     
     # Data arguments
     parser.add_argument("--data_path", type=str, default="./data",
@@ -348,17 +299,13 @@ if __name__ == "__main__":
                        help="Path to normalization statistics")
     
     # Evaluation arguments
-    parser.add_argument("--fold", type=int, default=None,
-                       help="Specific fold to evaluate (if None, evaluates all folds)")
-    parser.add_argument("--n_splits", type=int, default=5,
-                       help="Total number of folds")
     parser.add_argument("--eval_batch_size", type=int, default=32,
                        help="Batch size for evaluation")
     parser.add_argument("--cpu", action="store_true",
                        help="Force CPU evaluation")
     
     # Output arguments
-    parser.add_argument("--output_dir", type=str, default="./evaluation_results",
+    parser.add_argument("--output_dir", type=str, default="./test_results",
                        help="Directory to save evaluation results")
     
     args = parser.parse_args()

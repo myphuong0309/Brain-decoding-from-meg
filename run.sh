@@ -18,8 +18,8 @@ echo "[STEP 3] Training model..."
 bash train.sh
 echo "Model training completed!"
 
-# Step 4: Evaluate model
+# Step 4: Evaluate model on test set
 echo ""
-echo "[STEP 4] Evaluating model..."
-bash evaluate.sh
-echo "Evaluation completed!"
+echo "[STEP 4] Evaluating model on test set (Sherlock1 sessions 11-12)..."
+bash test.sh
+echo "Test evaluation completed!"

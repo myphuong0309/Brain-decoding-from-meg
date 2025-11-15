@@ -9,11 +9,20 @@ SENSORS_SPEECH_MASK = [18, 20, 22, 23, 45, 120, 138, 140, 142, 143, 145, 146, 14
 
 ALL_SENSORS = list(range(306))
 
-FULL_RUN_KEYS = []
-for j, max_sess in zip(range(1, 3), [11, 11]):
-    for i in range(1, max_sess + 1):
-        run = "2" if j == 1 and i in [11, 12] else "1"
-        FULL_RUN_KEYS.append(("0", str(i), f"Sherlock{j}", run))
+# Define train/val keys: Sherlock1 sessions 1-10, Sherlock2 sessions 1-12
+TRAIN_VAL_RUN_KEYS = []
+for i in range(1, 11):  # Sherlock1 sessions 1-10
+    run = "1"
+    TRAIN_VAL_RUN_KEYS.append(("0", str(i), "Sherlock1", run))
+for i in range(1, 13):  # Sherlock2 sessions 1-12 (all run-1)
+    run = "1"
+    TRAIN_VAL_RUN_KEYS.append(("0", str(i), "Sherlock2", run))
+
+# Define test keys: Sherlock1 sessions 11-12
+TEST_RUN_KEYS = [
+    ("0", "11", "Sherlock1", "2"),
+    ("0", "12", "Sherlock1", "2")
+]
         
 class FilteredDataset(Dataset):
     def __init__(self, dataset, limit_samples=None, apply_sensors_speech_mask=True,
@@ -79,7 +88,8 @@ def get_dataloaders(data_path, num_workers=4, fold=0, n_splits=5,
             raise FileNotFoundError(
                 f"[ERROR] Cached file not found: {fold_cache}")
 
-    full_run_keys = FULL_RUN_KEYS.copy()
+    # Use TRAIN_VAL_RUN_KEYS for cross-validation split
+    full_run_keys = TRAIN_VAL_RUN_KEYS.copy()
     total = len(full_run_keys)
     fold_size = total // n_splits
 
@@ -125,3 +135,38 @@ def get_dataloaders(data_path, num_workers=4, fold=0, n_splits=5,
     train_loader = DataLoader(train, batch_size=train_batch_size, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val, batch_size=eval_batch_size, shuffle=False, num_workers=num_workers)
     return train_loader, val_loader
+
+
+def get_test_dataloader(data_path, num_workers=4, eval_batch_size=32, 
+                        n_input=306, path_norm_global_channel_zscore="assets/norm/time"):
+    """
+    Get test dataloader for Sherlock1 sessions 11-12
+    """
+    if n_input == 306:
+        sensors_speech_mask = ALL_SENSORS
+    elif n_input == 23:
+        sensors_speech_mask = SENSORS_SPEECH_MASK
+    
+    dataset_kwargs = {
+        "data_path": data_path,
+        "tmin": 0.0,
+        "tmax": 0.8,
+        "preload_files": True,
+    }
+    
+    test_data = LibriBrainSpeech(
+        include_run_keys=TEST_RUN_KEYS,
+        standardize=False,
+        **dataset_kwargs
+    )
+    
+    test_filtered = FilteredDataset(test_data, n_input=n_input)
+    
+    normalizer = SensorNormalizer(
+        filtered_indices=sensors_speech_mask,
+        path_norm_global_channel_zscore=path_norm_global_channel_zscore
+    )
+    test = NormalizedDataset(test_filtered, normalizer)
+    
+    test_loader = DataLoader(test, batch_size=eval_batch_size, shuffle=False, num_workers=num_workers)
+    return test_loader

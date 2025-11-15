@@ -1,58 +1,40 @@
 #!/bin/bash
-# Brain Speech Classifier Evaluation Script
+# Brain Speech Classifier Test Set Evaluation Script - Ensemble Mode
 
 set -e
 
 # Parse command line arguments
-CHECKPOINT_PATH=${1:-""}  # Specific checkpoint file (optional)
-CKPT_PATH=${2:-"./output"}
-DATA_PATH=${3:-"./assets/data"}
-FOLD=${4:-""}  # Specific fold number (optional, empty means all folds)
-MODEL_INPUT=${5:-23}  # 23 for speech sensors, 306 for all sensors
-N_SPLITS=${6:-5}
-EVAL_BATCH_SIZE=${7:-32}
-OUTPUT_DIR=${8:-"./evaluation_results"}
-PATH_NORM=${9:-"assets/norm/time"}
-USE_CPU=${10:-""}  # pass "--cpu" if true
+CKPT_BASE_PATH=${1:-"./output"}
+DATA_PATH=${2:-"./assets/data"}
+MODEL_INPUT=${3:-23}  # 23 for speech sensors, 306 for all sensors
+EVAL_BATCH_SIZE=${4:-32}
+OUTPUT_DIR=${5:-"./test_results"}
+PATH_NORM=${6:-"assets/norm/time"}
+USE_CPU=${7:-""}  # pass "--cpu" if true
 
-echo "[INFO] Starting evaluation with the following configuration:"
-echo "  Checkpoint path: $CKPT_PATH"
+echo "=========================================="
+echo "Test Set Evaluation"
+echo "=========================================="
+echo "[INFO] Evaluating on Sherlock1 Sessions 11-12"
+echo "[INFO] Using ensemble of all folds"
+echo "  Checkpoint base path: $CKPT_BASE_PATH"
 echo "  Data path: $DATA_PATH"
 echo "  Input size: $MODEL_INPUT"
-echo "  N-fold CV: $N_SPLITS"
 echo "  Output directory: $OUTPUT_DIR"
 echo ""
 
-if [ -n "$CHECKPOINT_PATH" ] && [ -n "$FOLD" ]; then
-    # Evaluate specific checkpoint and fold
-    echo "[INFO] Evaluating fold $FOLD with checkpoint: $CHECKPOINT_PATH"
-    python scripts/evaluate.py \
-      --checkpoint_path "$CHECKPOINT_PATH" \
-      --fold "$FOLD" \
-      --data_path "$DATA_PATH" \
-      --model_input_size "$MODEL_INPUT" \
-      --n_splits "$N_SPLITS" \
-      --eval_batch_size "$EVAL_BATCH_SIZE" \
-      --output_dir "$OUTPUT_DIR" \
-      --path_norm_global_channel_zscore "$PATH_NORM" \
-      $USE_CPU
-elif [ -n "$FOLD" ]; then
-    echo "[ERROR] When specifying --fold, you must also provide --checkpoint_path"
-    exit 1
-else
-    # Evaluate all folds
-    echo "[INFO] Evaluating all folds..."
-    python scripts/evaluate.py \
-      --ckpt_path "$CKPT_PATH" \
-      --data_path "$DATA_PATH" \
-      --model_input_size "$MODEL_INPUT" \
-      --n_splits "$N_SPLITS" \
-      --eval_batch_size "$EVAL_BATCH_SIZE" \
-      --output_dir "$OUTPUT_DIR" \
-      --path_norm_global_channel_zscore "$PATH_NORM" \
-      $USE_CPU
-fi
+python scripts/evaluate.py \
+  --ckpt_path "$CKPT_BASE_PATH" \
+  --data_path "$DATA_PATH" \
+  --model_input_size "$MODEL_INPUT" \
+  --eval_batch_size "$EVAL_BATCH_SIZE" \
+  --output_dir "$OUTPUT_DIR" \
+  --path_norm_global_channel_zscore "$PATH_NORM" \
+  $USE_CPU
 
 echo ""
-echo "[INFO] Evaluation completed!"
+echo "[INFO] Ensemble test evaluation completed!"
 echo "[INFO] Results saved to: $OUTPUT_DIR"
+echo ""
+echo "To view results:"
+echo "  cat $OUTPUT_DIR/metrics.json"
