@@ -181,11 +181,44 @@ def print_metrics(metrics):
     print("="*60 + "\n")
 
 
-def find_all_checkpoints(ckpt_base_path):
-    """Find all checkpoint files from all folds"""
-    checkpoint_pattern = os.path.join(ckpt_base_path, "fold_*", "**", "*.ckpt")
-    checkpoints = glob(checkpoint_pattern, recursive=True)
-    return sorted(checkpoints)
+def find_best_checkpoint_per_fold(ckpt_base_path):
+    """Find the best checkpoint from each fold directory"""
+    fold_dirs = glob(os.path.join(ckpt_base_path, "fold_*"))
+    best_checkpoints = []
+    
+    for fold_dir in sorted(fold_dirs):
+        # Look for checkpoints in this fold
+        checkpoint_pattern = os.path.join(fold_dir, "**", "*.ckpt")
+        fold_checkpoints = glob(checkpoint_pattern, recursive=True)
+        
+        if not fold_checkpoints:
+            print(f"Warning: No checkpoints found in {fold_dir}")
+            continue
+        
+        # If there are multiple checkpoints, try to find the best one
+        # Look for files with "best" in name, or use the last epoch
+        best_ckpt = None
+        for ckpt in fold_checkpoints:
+            if 'best' in os.path.basename(ckpt).lower():
+                best_ckpt = ckpt
+                break
+        
+        # If no "best" checkpoint, use the one with highest epoch number
+        if not best_ckpt:
+            # Sort by epoch number (extract from filename like "epoch=14-step=13275.ckpt")
+            def extract_epoch(path):
+                import re
+                match = re.search(r'epoch=(\d+)', os.path.basename(path))
+                return int(match.group(1)) if match else -1
+            
+            fold_checkpoints.sort(key=extract_epoch, reverse=True)
+            best_ckpt = fold_checkpoints[0]
+        
+        best_checkpoints.append(best_ckpt)
+        fold_name = os.path.basename(fold_dir)
+        print(f"  {fold_name}: {os.path.basename(best_ckpt)}")
+    
+    return best_checkpoints
 
 
 def main(args):
@@ -196,20 +229,18 @@ def main(args):
     
     os.makedirs(args.output_dir, exist_ok=True)
     
-    # Find all checkpoints
+    # Find best checkpoint from each fold
     if args.checkpoint_paths:
         checkpoint_paths = args.checkpoint_paths
         print(f"Using specified checkpoints: {len(checkpoint_paths)} models")
+        for i, ckpt in enumerate(checkpoint_paths, 1):
+            print(f"  [{i}] {ckpt}")
     else:
-        checkpoint_paths = find_all_checkpoints(args.ckpt_path)
-        print(f"Found {len(checkpoint_paths)} checkpoints")
+        print(f"Finding best checkpoint from each fold in: {args.ckpt_path}")
+        checkpoint_paths = find_best_checkpoint_per_fold(args.ckpt_path)
     
     if not checkpoint_paths:
         raise ValueError(f"No checkpoints found in {args.ckpt_path}")
-    
-    # Display checkpoint paths
-    for i, ckpt in enumerate(checkpoint_paths, 1):
-        print(f"  [{i}] {ckpt}")
     
     # Get test dataloader
     print("\n" + "="*60)
