@@ -1,1 +1,8 @@
 pnpl
+lightning 
+torchmetrics 
+scikit-learn 
+plotly 
+ipywidgets 
+seaborn
+tensorboard

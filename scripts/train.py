@@ -1,0 +1,125 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # noqa: E402
+
+# --- The above three lines must stay at the very top for module import to work ---
+
+import argparse
+from datetime import datetime
+import torch
+import torch.distributed as dist
+from pytorch_lightning import Trainer, seed_everything
+from pytorch_lightning.callbacks import EarlyStopping
+from models.model import BrainSpeechClassifier
+from utils.processed_data import get_dataloaders
+from utils.util import get_logger_and_paths, save_hparams
+
+
+def run_fold(args, fold):
+    print(f"\nRunning Fold {fold}")
+    base_dir, logger_list = get_logger_and_paths(
+        args.ckpt_path, fold, args.timestamp)
+    save_hparams(base_dir, args)
+
+    print(f"[INFO] Using time domain preprocessing")
+    train_loader, val_loader = get_dataloaders(
+        data_path=args.data_path,
+        num_workers=4,
+        fold=fold,
+        n_splits=args.n_splits,
+        train_batch_size=args.train_batch_size,
+        eval_batch_size=args.eval_batch_size,
+        n_cv=args.n_splits,
+        oversample_silence_jitter=None,
+        n_input=args.model_input_size,
+        path_norm_global_channel_zscore=args.path_norm_global_channel_zscore
+    )
+
+    model = BrainSpeechClassifier(
+        input_dim=args.model_input_size,
+        model_dim=args.model_dim,
+        dropout_rate=args.dropout_rate,
+        lstm_layers=args.lstm_layers,
+        batch_norm=args.batch_norm,
+        bi_directional=args.bi_directional,
+        lr=args.lr,
+        weight_decay=args.weight_decay,
+    )
+
+    monitor_metric = "val_loss" if args.monitor == "val_loss" else "val_f1_macro"
+    monitor_mode = "min" if args.monitor == "val_loss" else "max"
+
+    early_stopping_callback = EarlyStopping(
+        monitor=monitor_metric,
+        mode=monitor_mode,
+        patience=args.early_stopping_patience,
+        min_delta=args.early_stopping_min_delta,
+        verbose=True,
+        strict=True,
+    )
+
+    trainer = Trainer(
+        max_epochs=args.epochs,
+        logger=logger_list,
+        callbacks=[early_stopping_callback],
+        default_root_dir=base_dir,
+        log_every_n_steps=max(1, len(train_loader) // 10),
+    )
+
+    trainer.fit(model, train_loader, val_loader)
+
+
+def main(args):
+    seed_everything(42)
+
+    # Ensure checkpoint directory exists
+    os.makedirs(args.ckpt_path, exist_ok=True)
+
+    timestamp_file = os.path.join(
+        args.ckpt_path, f"Model_timestamp.txt")
+    if not dist.is_initialized() or dist.get_rank() == 0:
+        args.timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        with open(timestamp_file, 'w') as f:
+            f.write(args.timestamp)
+
+    if dist.is_initialized():
+        dist.barrier()
+
+    if dist.is_initialized() and dist.get_rank() != 0:
+        with open(timestamp_file, 'r') as f:
+            args.timestamp = f.read().strip()
+
+    for fold in range(args.n_splits):
+        run_fold(args, fold)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_path", type=str, default="./data")
+    parser.add_argument("--ckpt_path", type=str, default="./")
+    parser.add_argument("--model_input_size", type=int, default=23)
+    parser.add_argument("--epochs", type=int, default=15)
+    parser.add_argument("--model_dim", type=int, default=128)
+    parser.add_argument("--dropout_rate", type=float, default=0.2)
+    parser.add_argument("--lstm_layers", type=int, default=2)
+    parser.add_argument("--batch_norm", action="store_true")
+    parser.add_argument("--bi_directional", action="store_true")
+    parser.add_argument("--lr", type=float, default=1e-5)
+    parser.add_argument("--monitor", type=str, default="val_f1_macro")
+    parser.add_argument("--weight_decay", type=float, default=1e-5)
+    parser.add_argument("--train_batch_size", type=int, default=32)
+    parser.add_argument("--eval_batch_size", type=int, default=32)
+    parser.add_argument("--n_splits", type=int, default=5)
+
+    # Early stopping arguments
+    parser.add_argument("--early_stopping_patience", type=int, default=10,
+                        help="Number of epochs to wait before early stopping (default: 10)")
+    parser.add_argument("--early_stopping_min_delta", type=float, default=0.001,
+                        help="Minimum change in monitored quantity to qualify as improvement (default: 0.001)")
+    
+    # Normalization arguments
+    parser.add_argument("--path_norm_global_channel_zscore", type=str, default="assets/norm/time",
+                        help="Path to global normalization statistics (default: assets/norm/time)")
+
+    args = parser.parse_args()
+    main(args)
