@@ -15,7 +15,6 @@ Place your LibriBrain data in `assets/data/` with the following structure:
 assets/data/
 ├── Sherlock1/
 ├── Sherlock2/
-└── ...
 ```
 
 ### 3. Run Complete Pipeline
