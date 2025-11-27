@@ -355,7 +355,6 @@ The aggregated curves show:
 - Mean performance with standard deviation across folds
 - Demonstrates model convergence and generalization
 
-
 **Confusion Matrix and ROC Curve** are available in `test_results/`.
 
 ### Key Findings
@@ -365,15 +364,80 @@ The aggregated curves show:
 - Attention mechanism helps focus on relevant temporal features
 - 23 speech-specific sensors perform comparably to 306 full sensors
 
-## Citation
+## References
 
-If you use this code or the LibriBrain dataset, please cite:
+### Dataset
 
-```bibtex
-@article{libribrain2024,
-  title={LibriBrain: MEG recordings during audiobook listening},
-  author={[Authors]},
-  journal={[Journal]},
-  year={2024}
-}
-```
+1. **LibriBrain Dataset**
+   - Defossez, A., et al. (2025). "LibriBrain: Over 50 Hours of Within-Subject MEG to Improve Speech Decoding Methods at Scale." _arXiv preprint arXiv:2506.02098_.
+   - URL: [https://arxiv.org/abs/2506.02098](https://arxiv.org/abs/2506.02098)
+
+### MEG and Brain Decoding
+
+2. **MEG Speech Decoding**
+   - Di Liberto, G. M., et al. (2015). "Low-frequency cortical entrainment to speech reflects phoneme-level processing." _Current Biology_, 25(19), 2457-2465.
+   - DOI: [10.1016/j.cub.2015.08.030](https://doi.org/10.1016/j.cub.2015.08.030)
+3. **Brain-to-Text**
+
+   - Makin, J. G., et al. (2020). "Machine translation of cortical activity to text with an encoder–decoder framework." _Nature Neuroscience_, 23(4), 575-582.
+   - DOI: [10.1038/s41593-020-0608-8](https://doi.org/10.1038/s41593-020-0608-8)
+
+4. **Speech Perception from MEG**
+   - Brodbeck, C., et al. (2018). "Rapid transformation from auditory to linguistic representations of continuous speech." _Current Biology_, 28(24), 3976-3983.
+   - DOI: [10.1016/j.cub.2018.10.042](https://doi.org/10.1016/j.cub.2018.10.042)
+
+### Deep Learning Architectures
+
+5. **LSTM Networks**
+
+   - Hochreiter, S., & Schmidhuber, J. (1997). "Long short-term memory." _Neural Computation_, 9(8), 1735-1780.
+   - DOI: [10.1162/neco.1997.9.8.1735](https://doi.org/10.1162/neco.1997.9.8.1735)
+
+6. **Bidirectional RNNs**
+
+   - Schuster, M., & Paliwal, K. K. (1997). "Bidirectional recurrent neural networks." _IEEE Transactions on Signal Processing_, 45(11), 2673-2681.
+   - DOI: [10.1109/78.650093](https://doi.org/10.1109/78.650093)
+
+7. **Attention Mechanisms**
+   - Bahdanau, D., et al. (2015). "Neural machine translation by jointly learning to align and translate." _ICLR 2015_.
+   - URL: [https://arxiv.org/abs/1409.0473](https://arxiv.org/abs/1409.0473)
+   - Vaswani, A., et al. (2017). "Attention is all you need." _NeurIPS 2017_, 5998-6008.
+   - URL: [https://arxiv.org/abs/1706.03762](https://arxiv.org/abs/1706.03762)
+
+### Neural Signal Processing
+
+8. **Deep Learning for Neural Decoding**
+
+   - Glaser, J. I., et al. (2020). "Machine learning for neural decoding." _eNeuro_, 7(4).
+   - DOI: [10.1523/ENEURO.0506-19.2020](https://doi.org/10.1523/ENEURO.0506-19.2020)
+
+9. **Convolutional Neural Networks for EEG/MEG**
+
+   - Schirrmeister, R. T., et al. (2017). "Deep learning with convolutional neural networks for EEG decoding and visualization." _Human Brain Mapping_, 38(11), 5391-5420.
+   - DOI: [10.1002/hbm.23730](https://doi.org/10.1002/hbm.23730)
+
+10. **Temporal Convolutional Networks**
+    - Lea, C., et al. (2017). "Temporal convolutional networks for action segmentation and detection." _CVPR 2017_, 156-165.
+    - URL: [https://arxiv.org/abs/1611.05267](https://arxiv.org/abs/1611.05267)
+
+### Machine Learning Techniques
+
+11. **Label Smoothing**
+
+    - Szegedy, C., et al. (2016). "Rethinking the inception architecture for computer vision." _CVPR 2016_, 2818-2826.
+    - URL: [https://arxiv.org/abs/1512.00567](https://arxiv.org/abs/1512.00567)
+
+12. **Cross-Validation**
+    - Kohavi, R. (1995). "A study of cross-validation and bootstrap for accuracy estimation and model selection." _IJCAI_, 14(2), 1137-1145.
+    - URL: [https://www.ijcai.org/Proceedings/95-2/Papers/016.pdf](https://www.ijcai.org/Proceedings/95-2/Papers/016.pdf)
+
+### Frameworks and Tools
+
+13. **PyTorch Lightning**
+
+    - Falcon, W., et al. (2019). "PyTorch Lightning." _GitHub repository_.
+    - URL: [https://github.com/Lightning-AI/lightning](https://github.com/Lightning-AI/lightning)
+
+14. **PyTorch**
+    - Paszke, A., et al. (2019). "PyTorch: An imperative style, high-performance deep learning library." _NeurIPS 2019_, 8024-8035.
+    - URL: [https://arxiv.org/abs/1912.01703](https://arxiv.org/abs/1912.01703)
