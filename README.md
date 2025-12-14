@@ -16,8 +16,8 @@ This project implements deep learning models for two MEG-based brain decoding ta
   - [Data Structure for Task 2](#data-structure-for-task-2)
 - [Task 1: Speech Detection](#task-1-speech-detection)
   - [Dataset Information](#dataset-information)
-  - [Training (Task 1)](#training-task-1)
   - [Model Architecture (Task 1)](#model-architecture-task-1)
+  - [Training (Task 1)](#training-task-1)
   - [Evaluation (Task 1)](#evaluation-task-1)
   - [Results (Task 1)](#results-task-1)
 - [Task 2: Phoneme Classification](#task-2-phoneme-classification)
@@ -171,6 +171,63 @@ assets/data_task2/
 - **Classes**: 2 (Speech, Silence)
 - **Class Distribution**: Imbalanced (Speech >> Silence, ratio ~2.9:1)
 
+### Model Architecture (Task 1)
+
+The model uses a hybrid **CNN-LSTM architecture with attention pooling** for binary speech vs. silence classification:
+
+```
+Input (Batch, 306 Channels, 125 Timepoints)
+    ↓
+Conv1D (kernel_size=3, out_channels=model_dim)
+    ↓
+BatchNorm1D (optional)
+    ↓
+ReLU + Dropout
+    ↓
+Bidirectional LSTM (2 layers, hidden_dim=model_dim)
+    ↓
+Attention Pooling (learned weights)
+    ↓
+Dropout
+    ↓
+Linear Classifier (model_dim → 1)
+    ↓
+Output (Batch, 1) - Speech probability
+```
+
+**Architecture Components:**
+
+1. **Convolutional Layer:**
+
+   - 1D convolution (kernel=3) extracts local temporal features
+   - Maps 306 MEG channels to `model_dim` (256) feature channels
+   - Optional batch normalization for training stability
+
+2. **Bidirectional LSTM (2 layers):**
+
+   - Captures long-range temporal dependencies in both directions
+   - Hidden dimension: 256
+   - Processes sequence forward and backward for richer representations
+   - Dropout between layers prevents overfitting
+
+3. **Attention Pooling:**
+
+   - Learned attention mechanism weighs important time steps
+   - Query vector learns which temporal features are most discriminative
+   - Reduces variable-length sequence to fixed-size representation
+   - Formula: `attention_weights = softmax(Q · LSTM_output^T)`
+
+4. **Classification Head:**
+   - Single linear layer: `model_dim → 1`
+   - BCEWithLogitsLoss with `pos_weight=0.5` for class imbalance
+   - Sigmoid activation for binary probability output
+
+**Model Statistics:**
+
+- Total parameters: ~2.1M (with model_dim=256, 306 input channels)
+- Training time: ~15-20 min/epoch on RTX 4060
+- Inference speed: ~500 samples/sec
+
 ### Training (Task 1)
 
 ### Quick Start: Complete Pipeline
@@ -261,62 +318,24 @@ bash train.sh \
 - Patience: 3 epochs
 - Min LR: 1e-6
 
-### Model Architecture (Task 1)
 
-The model uses a hybrid **CNN-LSTM architecture with attention pooling** for binary speech vs. silence classification:
+**Training Progress Visualization:**
 
-```
-Input (Batch, 306 Channels, 125 Timepoints)
-    ↓
-Conv1D (kernel_size=3, out_channels=model_dim)
-    ↓
-BatchNorm1D (optional)
-    ↓
-ReLU + Dropout
-    ↓
-Bidirectional LSTM (2 layers, hidden_dim=model_dim)
-    ↓
-Attention Pooling (learned weights)
-    ↓
-Dropout
-    ↓
-Linear Classifier (model_dim → 1)
-    ↓
-Output (Batch, 1) - Speech probability
-```
+<p align="center">
+  <img src="plots/training_curves.png" alt="Task 1 Training Curves" width="90%"/>
+</p>
 
-**Architecture Components:**
+<p align="center">
+  <em>Training and validation metrics over epochs showing stable convergence with learning rate scheduling</em>
+</p>
 
-1. **Convolutional Layer:**
+<p align="center">
+  <img src="plots/combined_metrics.png" alt="Task 1 Combined Metrics" width="90%"/>
+</p>
 
-   - 1D convolution (kernel=3) extracts local temporal features
-   - Maps 306 MEG channels to `model_dim` (256) feature channels
-   - Optional batch normalization for training stability
-
-2. **Bidirectional LSTM (2 layers):**
-
-   - Captures long-range temporal dependencies in both directions
-   - Hidden dimension: 256
-   - Processes sequence forward and backward for richer representations
-   - Dropout between layers prevents overfitting
-
-3. **Attention Pooling:**
-
-   - Learned attention mechanism weighs important time steps
-   - Query vector learns which temporal features are most discriminative
-   - Reduces variable-length sequence to fixed-size representation
-   - Formula: `attention_weights = softmax(Q · LSTM_output^T)`
-
-4. **Classification Head:**
-   - Single linear layer: `model_dim → 1`
-   - BCEWithLogitsLoss with `pos_weight=0.5` for class imbalance
-   - Sigmoid activation for binary probability output
-
-**Model Statistics:**
-
-- Total parameters: ~2.1M (with model_dim=256, 306 input channels)
-- Training time: ~15-20 min/epoch on RTX 4060
-- Inference speed: ~500 samples/sec
+<p align="center">
+  <em>Combined view of F1 score and loss - training vs validation performance comparison</em>
+</p>
 
 ### Evaluation (Task 1)
 
