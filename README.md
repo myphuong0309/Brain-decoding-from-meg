@@ -547,60 +547,53 @@ bash evaluate_task2.sh
 ### Dataset
 
 1. **LibriBrain Dataset**
-   - Defossez, A., et al. (2025). "LibriBrain: Over 50 Hours of Within-Subject MEG to Improve Speech Decoding Methods at Scale." _arXiv preprint arXiv:2506.02098_.
-   - URL: [https://arxiv.org/abs/2506.02098](https://arxiv.org/abs/2506.02098)
+- Defossez, A., et al. (2025). "LibriBrain: Over 50 Hours of Within-Subject MEG to Improve Speech Decoding Methods at Scale." _arXiv preprint arXiv:2506.02098_.
+- Link: [https://arxiv.org/abs/2506.02098](https://arxiv.org/abs/2506.02098)
 
 ### MEG and Brain Decoding
 
 2. **MEG Speech Decoding**
-   - Di Liberto, G. M., et al. (2015). "Low-frequency cortical entrainment to speech reflects phoneme-level processing." _Current Biology_, 25(19), 2457-2465.
-   - DOI: [10.1016/j.cub.2015.08.030](https://doi.org/10.1016/j.cub.2015.08.030)
+- Di Liberto, G. M., et al. (2015). "Low-frequency cortical entrainment to speech reflects phoneme-level processing." _Current Biology_, 25(19), 2457-2465.
+- DOI: [10.1016/j.cub.2015.08.030](https://doi.org/10.1016/j.cub.2015.08.030)
 3. **Brain-to-Text**
-
-   - Makin, J. G., et al. (2020). "Machine translation of cortical activity to text with an encoder–decoder framework." _Nature Neuroscience_, 23(4), 575-582.
-   - DOI: [10.1038/s41593-020-0608-8](https://doi.org/10.1038/s41593-020-0608-8)
+- Makin, J. G., et al. (2020). "Machine translation of cortical activity to text with an encoder–decoder framework." _Nature Neuroscience_, 23(4), 575-582.
+- DOI: [10.1038/s41593-020-0608-8](https://doi.org/10.1038/s41593-020-0608-8)
 
 4. **Speech Perception from MEG**
-
-   - Brodbeck, C., et al. (2018). "Rapid transformation from auditory to linguistic representations of continuous speech." _Current Biology_, 28(24), 3976-3983.
-   - DOI: [10.1016/j.cub.2018.10.042](https://doi.org/10.1016/j.cub.2018.10.042)
+- Brodbeck, C., et al. (2018). "Rapid transformation from auditory to linguistic representations of continuous speech." _Current Biology_, 28(24), 3976-3983.
+- DOI: [10.1016/j.cub.2018.10.042](https://doi.org/10.1016/j.cub.2018.10.042)
 
 5. **Phoneme Decoding from Brain Signals**
-   - Herff, C., et al. (2015). "Brain-to-text: decoding spoken phrases from phone representations in the brain." _Frontiers in Neuroscience_, 9, 217.
-   - DOI: [10.3389/fnins.2015.00217](https://doi.org/10.3389/fnins.2015.00217)
+- Herff, C., et al. (2015). "Brain-to-text: decoding spoken phrases from phone representations in the brain." _Frontiers in Neuroscience_, 9, 217.
+- DOI: [10.3389/fnins.2015.00217](https://doi.org/10.3389/fnins.2015.00217)
 
 ### Deep Learning Architectures
 
 6. **LSTM Networks**
-
-   - Hochreiter, S., & Schmidhuber, J. (1997). "Long short-term memory." _Neural Computation_, 9(8), 1735-1780.
-   - DOI: [10.1162/neco.1997.9.8.1735](https://doi.org/10.1162/neco.1997.9.8.1735)
+- Hochreiter, S., & Schmidhuber, J. (1997). "Long short-term memory." _Neural Computation_, 9(8), 1735-1780.
+- DOI: [10.1162/neco.1997.9.8.1735](https://doi.org/10.1162/neco.1997.9.8.1735)
 
 7. **Bidirectional RNNs**
-
-   - Schuster, M., & Paliwal, K. K. (1997). "Bidirectional recurrent neural networks." _IEEE Transactions on Signal Processing_, 45(11), 2673-2681.
-   - DOI: [10.1109/78.650093](https://doi.org/10.1109/78.650093)
+- Schuster, M., & Paliwal, K. K. (1997). "Bidirectional recurrent neural networks." _IEEE Transactions on Signal Processing_, 45(11), 2673-2681.
+- DOI: [10.1109/78.650093](https://doi.org/10.1109/78.650093)
 
 8. **Attention Mechanisms**
-
-   - Bahdanau, D., et al. (2015). "Neural machine translation by jointly learning to align and translate." _ICLR 2015_.
-   - URL: [https://arxiv.org/abs/1409.0473](https://arxiv.org/abs/1409.0473)
-   - Vaswani, A., et al. (2017). "Attention is all you need." _NeurIPS 2017_, 5998-6008.
-   - URL: [https://arxiv.org/abs/1706.03762](https://arxiv.org/abs/1706.03762)
+- Bahdanau, D., et al. (2015). "Neural machine translation by jointly learning to align and translate." _ICLR 2015_.
+- URL: [https://arxiv.org/abs/1409.0473](https://arxiv.org/abs/1409.0473)
+- Vaswani, A., et al. (2017). "Attention is all you need." _NeurIPS 2017_, 5998-6008.
+- URL: [https://arxiv.org/abs/1706.03762](https://arxiv.org/abs/1706.03762)
 
 9. **Batch Normalization**
-   - Ioffe, S., & Szegedy, C. (2015). "Batch normalization: Accelerating deep network training by reducing internal covariate shift." _ICML 2015_, 448-456.
-   - URL: [https://arxiv.org/abs/1502.03167](https://arxiv.org/abs/1502.03167)
+- Ioffe, S., & Szegedy, C. (2015). "Batch normalization: Accelerating deep network training by reducing internal covariate shift." _ICML 2015_, 448-456.
+- URL: [https://arxiv.org/abs/1502.03167](https://arxiv.org/abs/1502.03167)
 
 ### Neural Signal Processing
 
 10. **Convolutional Neural Networks for EEG/MEG**
-
 - Glaser, J. I., et al. (2020). "Machine learning for neural decoding." _eNeuro_, 7(4).
 - DOI: [10.1523/ENEURO.0506-19.2020](https://doi.org/10.1523/ENEURO.0506-19.2020)
 
 11. **Temporal Convolutional Networks**
-
 - Schirrmeister, R. T., et al. (2017). "Deep learning with convolutional neural networks for EEG decoding and visualization." _Human Brain Mapping_, 38(11), 5391-5420.
 - DOI: [10.1002/hbm.23730](https://doi.org/10.1002/hbm.23730)
 
