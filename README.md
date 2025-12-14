@@ -14,20 +14,21 @@ This project implements a deep learning model for classifying speech versus sile
 - [Visualization](#visualization)
 - [Model Architecture](#model-architecture)
 - [Results](#results)
+- [References](#references)
 
 ## Overview
 
-This project uses MEG recordings from the LibriBrain dataset (Sherlock1 and Sherlock2 sessions) to classify brain activity as either speech or silence. The model employs a CNN-LSTM architecture with attention pooling for temporal feature extraction.
+This project uses MEG recordings from the LibriBrain dataset to classify brain activity as either speech or silence. The model employs a CNN-LSTM architecture with attention pooling for temporal feature extraction.
 
 **Key Features:**
 
 - Deep learning model with Conv1D + Bi-LSTM + Attention mechanism
-- 5-fold or 10-fold cross-validation
+- Fixed train/validation/test split for robust evaluation
 - Global channel-wise z-score normalization
-- Early stopping with configurable patience
+- Learning rate scheduling and gradient clipping for stable training
 - Comprehensive evaluation metrics (F1, Precision, Recall, ROC-AUC)
-- Ensemble prediction from multiple folds
 - Training visualization and analysis tools
+- Class-balanced loss function with configurable pos_weight
 
 ## Project Structure
 
@@ -37,7 +38,8 @@ This project uses MEG recordings from the LibriBrain dataset (Sherlock1 and Sher
 │   ├── data/                    # MEG data directory
 │   │   ├── Sherlock1/
 │   │   ├── Sherlock2/
-│   │   └── cached_cv10/         # Precached fold splits
+│   │   ├── Sherlock3/           # (Optional) Additional training data
+│   │   ├── Sherlock4/           # (Optional) Additional training data
 │   └── norm/
 │       └── time/
 │           └── global_stats.pt  # Global normalization statistics
@@ -48,7 +50,7 @@ This project uses MEG recordings from the LibriBrain dataset (Sherlock1 and Sher
 │   ├── evaluate.py              # Evaluation script
 │   └── plot_training_results.py # Visualization script
 ├── utils/
-│   ├── folds.py                 # Data splitting and caching
+│   ├── folds.py                 # (Legacy) Data splitting and caching
 │   ├── compute_global_stats.py  # Normalization statistics
 │   ├── processed_data.py        # Data loading and preprocessing
 │   ├── loss.py                  # Custom loss functions
@@ -112,17 +114,20 @@ assets/data/
 
 ### Dataset Information
 
-- **Training/Validation**: Sherlock1 sessions 1-10, Sherlock2 sessions 1-12
-- **Test Set**: Sherlock1 sessions 11-12
+- **Training**: Sherlock1 sessions 1-10 + Sherlock2 sessions 1-12 (22 sessions)
+- **Validation**: Sherlock1 session 11 (1 session)
+- **Test**: Sherlock1 session 12 (1 session)
+- **Time Window**: 0.5 seconds per sample
 - **Input Channels**:
   - Full MEG: 306 channels
   - Speech-specific: 23 selected channels
+- **Class Distribution**: Imbalanced (Speech >> Silence, ratio ~2.9:1)
 
 ## Training
 
 ### Quick Start: Complete Pipeline
 
-Run the entire pipeline (precaching, statistics, training, evaluation):
+Run the entire pipeline (statistics computation, training, evaluation):
 
 ```bash
 bash run.sh
@@ -130,22 +135,50 @@ bash run.sh
 
 This script executes:
 
-1. Data precaching (10-fold splits)
-2. Global statistics computation
-3. Model training (5-fold cross-validation)
-4. Test set evaluation (ensemble)
+1. Global statistics computation
+2. Model training (single train/val split)
+3. Test set evaluation
 
-### Step-by-Step Training
+### Training Configuration
 
-#### Step 1: Precache Data Splits
+The current optimized configuration uses:
 
 ```bash
-python utils/folds.py --data_path "./assets/data" --n_splits 10
+bash train.sh
 ```
 
-This creates cached PyTorch datasets for each fold in `assets/data/cached_cv10/`.
+**Default Hyperparameters:**
 
-#### Step 2: Compute Global Normalization Statistics
+- **Model Architecture:**
+  - `model_dim`: 256 (hidden dimension)
+  - `model_input_size`: 306 (all MEG channels)
+  - `lstm_layers`: 2
+  - `bi_directional`: Yes (enabled)
+  - `batch_norm`: Yes (enabled)
+  - `dropout_rate`: 0.08
+
+- **Training Parameters:**
+  - `epochs`: 15
+  - `lr`: 5e-5 (learning rate with ReduceLROnPlateau scheduler)
+  - `weight_decay`: 1e-2
+  - `train_batch_size`: 32 (effective: 64 with gradient accumulation)
+  - `eval_batch_size`: 32
+  - `gradient_clip_val`: 1.0
+  - `accumulate_grad_batches`: 2
+
+- **Loss Function:**
+  - BCE with Logits Loss
+  - `pos_weight`: 0.5 (to handle class imbalance)
+  - `label_smoothing`: 0.0
+
+- **Early Stopping:**
+  - `monitor`: val_f1_macro
+  - `patience`: 10 epochs
+  - `min_delta`: 0.001
+
+### Manual Training Steps
+
+#### Step 1: Compute Global Normalization Statistics
 
 ```bash
 python utils/compute_global_stats.py --data_path "./assets/data"
@@ -153,7 +186,7 @@ python utils/compute_global_stats.py --data_path "./assets/data"
 
 This computes per-channel mean and standard deviation and saves to `assets/norm/time/global_stats.pt`.
 
-#### Step 3: Train Model
+#### Step 2: Train Model
 
 ```bash
 bash train.sh
@@ -165,18 +198,17 @@ Or with custom parameters:
 bash train.sh \
   "./assets/data" \          # DATA_PATH
   "./output" \               # CKPT_PATH
-  15 \                       # EPOCHS
-  128 \                      # MODEL_DIM
-  23 \                       # MODEL_INPUT (23 or 306)
-  1e-5 \                     # LEARNING_RATE
-  0.2 \                      # DROPOUT
+  25 \                       # EPOCHS
+  256 \                      # MODEL_DIM
+  306 \                      # MODEL_INPUT (23 or 306)
+  5e-5 \                     # LEARNING_RATE
+  0.08 \                     # DROPOUT
   2 \                        # LSTM_LAYERS
-  1e-5 \                     # WEIGHT_DECAY
+  1e-2 \                     # WEIGHT_DECAY
   32 \                       # TRAIN_BATCH_SIZE
   32 \                       # EVAL_BATCH_SIZE
-  "" \                       # BATCH_NORM (pass "--batch_norm" if true)
-  "" \                       # BI_DIRECTIONAL (pass "--bi_directional" if true)
-  5 \                        # N_SPLITS
+  "--batch_norm" \           # BATCH_NORM (pass "--batch_norm" or "")
+  "--bi_directional" \       # BI_DIRECTIONAL (pass "--bi_directional" or "")
   "val_f1_macro" \           # MONITOR (val_f1_macro or val_loss)
   10 \                       # EARLY_STOPPING_PATIENCE
   0.001 \                    # EARLY_STOPPING_MIN_DELTA
@@ -187,24 +219,22 @@ bash train.sh \
 
 **Model Parameters:**
 
-- `model_dim`: Hidden dimension size (default: 128)
+- `model_dim`: Hidden dimension size (default: 256)
 - `model_input_size`: Number of input channels (23 or 306)
 - `lstm_layers`: Number of LSTM layers (default: 2)
-- `dropout_rate`: Dropout rate (default: 0.2)
-- `batch_norm`: Enable batch normalization
-- `bi_directional`: Use bidirectional LSTM
+- `dropout_rate`: Dropout rate (default: 0.08)
+- `batch_norm`: Enable batch normalization (default: enabled)
+- `bi_directional`: Use bidirectional LSTM (default: enabled)
 
 **Training Parameters:**
 
-- `epochs`: Maximum epochs (default: 15)
-- `lr`: Learning rate (default: 1e-5)
-- `weight_decay`: Weight decay for AdamW (default: 1e-5)
+- `epochs`: Maximum epochs (default: 25 with early stopping)
+- `lr`: Learning rate (default: 5e-5 with ReduceLROnPlateau)
+- `weight_decay`: Weight decay for AdamW (default: 1e-2)
 - `train_batch_size`: Training batch size (default: 32)
 - `eval_batch_size`: Validation batch size (default: 32)
-
-**Cross-Validation:**
-
-- `n_splits`: Number of folds (default: 5)
+- `gradient_clip_val`: Gradient clipping value (default: 1.0)
+- `accumulate_grad_batches`: Gradient accumulation steps (default: 2)
 
 **Early Stopping:**
 
@@ -212,11 +242,19 @@ bash train.sh \
 - `early_stopping_patience`: Patience epochs (default: 10)
 - `early_stopping_min_delta`: Minimum improvement (default: 0.001)
 
+**Learning Rate Scheduler:**
+
+- Type: ReduceLROnPlateau
+- Mode: max (for val_f1_macro)
+- Factor: 0.5 (reduce LR by 50%)
+- Patience: 3 epochs
+- Min LR: 1e-6
+
 ## Evaluation
 
-### Test Set Evaluation (Ensemble)
+### Test Set Evaluation
 
-Evaluate on the holdout test set using ensemble predictions from all folds:
+Evaluate on the holdout test set (Sherlock1 session 12):
 
 ```bash
 bash evaluate.sh
@@ -228,7 +266,7 @@ Or with custom parameters:
 bash evaluate.sh \
   "./output" \               # CKPT_BASE_PATH
   "./assets/data" \          # DATA_PATH
-  23 \                       # MODEL_INPUT
+  306 \                      # MODEL_INPUT
   32 \                       # EVAL_BATCH_SIZE
   "./test_results" \         # OUTPUT_DIR
   "assets/norm/time" \       # PATH_NORM
@@ -266,20 +304,13 @@ python scripts/plot_training_results.py \
 
 ### Generated Plots
 
-1. **training_curves.png**: Individual fold training and validation curves
+1. **training_curves.png**: Individual training and validation curves
+   - 4 subplots showing F1 score and loss for both training and validation
+   - Helps identify overfitting and training dynamics
 
-   - Shows F1 score and loss for each fold across epochs
-   - Helps identify overfitting and fold consistency
-
-2. **aggregated_curves.png**: Mean ± std across all folds
-
-   - Aggregated view of model performance
-   - Shaded areas represent standard deviation
-   - Useful for understanding overall training dynamics
-
-3. **fold_comparison.png**: Best performance comparison per fold
-   - Bar chart comparing best metrics across folds
-   - Shows fold-to-fold variability
+2. **combined_metrics.png**: Combined training vs validation comparison
+   - 2 subplots comparing train/val F1 and loss side-by-side
+   - Useful for understanding model convergence
 
 ## Model Architecture
 
@@ -331,38 +362,84 @@ Output (B, 1)
 
 - Single linear layer
 - Binary classification (speech vs. silence)
-- BCEWithLogitsLoss with label smoothing
+- BCEWithLogitsLoss with optional label smoothing
+- Configurable pos_weight for class imbalance handling
 
 ### Loss Function
 
-**BCEWithLogitsLoss with Label Smoothing:**
+**BCEWithLogitsLoss with Class Balancing:**
 
-- Prevents overconfident predictions
-- Smoothing parameter: 0.5 (default)
-- Positive class weighting supported
+- Handles class imbalance via pos_weight parameter
+- Optional label smoothing to prevent overconfident predictions
+- Current configuration: pos_weight=0.5, smoothing=0.0
+
+### Training Stability Features
+
+1. **Learning Rate Scheduler**: ReduceLROnPlateau reduces LR when val_f1_macro plateaus
+2. **Gradient Clipping**: Clips gradients to max norm of 1.0 to prevent exploding gradients
+3. **Gradient Accumulation**: Accumulates gradients over 2 batches for effective batch size of 64
+4. **Early Stopping**: Stops training if no improvement for 10 consecutive epochs
 
 ## Results
 
-### Training Results
+### Test Set Performance
 
-![Aggregated Training Curves](plots/aggregated_curves.png)
-![Individual Fold Training Curves](plots/training_curves.png)
+The model was evaluated on Sherlock1 session 12 (holdout test set):
 
-The aggregated curves show:
+**Overall Metrics:**
+- **Accuracy**: 78.60%
+- **F1 Score (Binary)**: 85.19%
+- **F1 Score (Macro)**: 73.30%
+- **ROC-AUC**: 83.39%
+- **Precision (Macro)**: 72.37%
+- **Recall (Macro)**: 74.72%
 
-- Training and validation F1 scores over epochs
-- Training and validation losses over epochs
-- Mean performance with standard deviation across folds
-- Demonstrates model convergence and generalization
+**Per-Class Performance:**
 
-**Confusion Matrix and ROC Curve** are available in `test_results/`.
+| Class | Precision | Recall | F1 Score | Support |
+|-------|-----------|--------|----------|---------|
+| **Silence (0)** | 56.82% | 66.80% | 61.41% | 723 |
+| **Speech (1)** | 87.92% | 82.63% | 85.19% | 2113 |
+
+**Confusion Matrix:**
+
+|                | Predicted Silence | Predicted Speech |
+|----------------|-------------------|------------------|
+| **Actual Silence** | 483 | 240 |
+| **Actual Speech** | 367 | 1746 |
+
+### Training Configuration Used
+
+- Model dimension: 256
+- Input channels: 306 (all MEG sensors)
+- Bidirectional LSTM: Yes
+- Batch normalization: Yes
+- Learning rate: 5e-5 (with ReduceLROnPlateau)
+- Dropout: 0.08
+- Weight decay: 1e-2
+- pos_weight: 0.5
+- Training data: Sherlock1 (1-10) + Sherlock2 (1-12) = 22 sessions
+- Validation: Sherlock1 session 11
+- Test: Sherlock1 session 12
+- Time window: 0.5 seconds
+
+### Visualization
+
+Training curves show stable convergence with the learning rate scheduler effectively reducing LR when performance plateaus. The model demonstrates good generalization with validation metrics closely tracking training metrics.
+
+![Training Curves](plots/training_curves.png)
+![Combined Metrics](plots/combined_metrics.png)
+![Confusion Matrix](test_results/confusion_matrix.png)
+![ROC Curve](test_results/roc_curve.png)
 
 ### Key Findings
 
-- Strong classification performance on speech vs. silence task
-- Ensemble approach improves generalization
-- Attention mechanism helps focus on relevant temporal features
-- 23 speech-specific sensors perform comparably to 306 full sensors
+- Strong classification performance on speech detection (F1: 85.19%)
+- Moderate performance on silence detection (F1: 61.41%) due to class imbalance
+- Bidirectional LSTM with attention effectively captures temporal patterns
+- Learning rate scheduling and gradient clipping ensure stable training
+- 306 full MEG sensors provide comprehensive brain activity coverage
+- Class balancing via pos_weight improves minority class (silence) recall
 
 ## References
 

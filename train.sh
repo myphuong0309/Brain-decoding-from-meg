@@ -1,5 +1,4 @@
 #!/bin/bash
-# Brain Speech Classifier Training Script
 
 set -e
 
@@ -8,20 +7,19 @@ DATA_PATH=${1:-"./assets/data"}
 CKPT_PATH=${2:-"./output"}
 EPOCHS=${3:-15}
 MODEL_DIM=${4:-256}
-MODEL_INPUT=${5:-306}  # 23 for speech sensors, 306 for all sensors
-LR=${6:-1e-4}
-DROPOUT=${7:-0.02}
+MODEL_INPUT=${5:-306}  
+LR=${6:-5e-5}
+DROPOUT=${7:-0.08}
 LSTM_LAYERS=${8:-2}
-WEIGHT_DECAY=${9:-5e-2}
+WEIGHT_DECAY=${9:-1e-2}
 TRAIN_BATCH_SIZE=${10:-32}
 EVAL_BATCH_SIZE=${11:-32}
-BATCH_NORM=${12:-""}        # pass "--batch_norm" if true
-BI_DIRECTIONAL=${13:-""}    # pass "--bi_directional" if true
-N_SPLITS=${14:-5}
-MONITOR=${15:-"val_f1_macro"}  # "val_f1_macro" or "val_loss"
-EARLY_STOPPING_PATIENCE=${16:-10}
-EARLY_STOPPING_MIN_DELTA=${17:-0.001}
-PATH_NORM=${18:-"assets/norm/time"}
+BATCH_NORM=${12:-"--batch_norm"}        
+BI_DIRECTIONAL=${13:-"--bi_directional"}   
+MONITOR=${14:-"val_f1_macro"}  
+EARLY_STOPPING_PATIENCE=${15:-10}
+EARLY_STOPPING_MIN_DELTA=${16:-0.001}
+PATH_NORM=${17:-"assets/norm/time"}
 
 echo "[INFO] Starting training with the following configuration:"
 echo "  Data path: $DATA_PATH"
@@ -31,7 +29,6 @@ echo "  Model dim: $MODEL_DIM"
 echo "  Input size: $MODEL_INPUT"
 echo "  Learning rate: $LR"
 echo "  Batch size: $TRAIN_BATCH_SIZE"
-echo "  N-fold CV: $N_SPLITS"
 echo ""
 
 python scripts/train.py \
@@ -46,13 +43,10 @@ python scripts/train.py \
   --weight_decay "$WEIGHT_DECAY" \
   --train_batch_size "$TRAIN_BATCH_SIZE" \
   --eval_batch_size "$EVAL_BATCH_SIZE" \
-  --n_splits "$N_SPLITS" \
   --monitor "$MONITOR" \
   --early_stopping_patience "$EARLY_STOPPING_PATIENCE" \
   --early_stopping_min_delta "$EARLY_STOPPING_MIN_DELTA" \
-  --path_norm_global_channel_zscore "$PATH_NORM" \
-  $BATCH_NORM \
-  $BI_DIRECTIONAL
+  --path_norm_global_channel_zscore "$PATH_NORM" $BATCH_NORM $BI_DIRECTIONAL
 
 echo ""
 echo "[INFO] Training completed!"

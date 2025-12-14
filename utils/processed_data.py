@@ -9,18 +9,28 @@ SENSORS_SPEECH_MASK = [18, 20, 22, 23, 45, 120, 138, 140, 142, 143, 145, 146, 14
 
 ALL_SENSORS = list(range(306))
 
-# Define train/val keys: Sherlock1 sessions 1-10, Sherlock2 sessions 1-12
-TRAIN_VAL_RUN_KEYS = []
+# Define train keys: Sherlock1 sessions 1-10 + Sherlock2/3/4 all sessions
+TRAIN_RUN_KEYS = []
 for i in range(1, 11):  # Sherlock1 sessions 1-10
     run = "1"
-    TRAIN_VAL_RUN_KEYS.append(("0", str(i), "Sherlock1", run))
+    TRAIN_RUN_KEYS.append(("0", str(i), "Sherlock1", run))
 for i in range(1, 13):  # Sherlock2 sessions 1-12 (all run-1)
     run = "1"
-    TRAIN_VAL_RUN_KEYS.append(("0", str(i), "Sherlock2", run))
+    TRAIN_RUN_KEYS.append(("0", str(i), "Sherlock2", run))
+# for i in range(1, 13):  # Sherlock3 sessions 1-11 (all run-1)
+#     run = "1"
+#     TRAIN_RUN_KEYS.append(("0", str(i), "Sherlock3", run))
+# for i in range(1, 13):  # Sherlock4 sessions 1-11 (all run-1)
+#     run = "1"
+#     TRAIN_RUN_KEYS.append(("0", str(i), "Sherlock4", run))
 
-# Define test keys: Sherlock1 sessions 11-12
+# Define val keys: Sherlock1 session 11
+VAL_RUN_KEYS = [
+    ("0", "11", "Sherlock1", "2")
+]
+
+# Define test keys: Sherlock1 session 12
 TEST_RUN_KEYS = [
-    ("0", "11", "Sherlock1", "2"),
     ("0", "12", "Sherlock1", "2")
 ]
         
@@ -67,61 +77,44 @@ class NormalizedDataset(Dataset):
                 sensors = torch.from_numpy(sensors).float()
         return sensors, label
 
-def get_dataloaders(data_path, num_workers=4, fold=0, n_splits=5,
+def get_dataloaders(data_path, num_workers=4,
                        train_batch_size=32, eval_batch_size=32,
-                       use_fold_specific_cache=False,
-                       oversample_silence_jitter=None, n_cv=10, n_input=306,
+                       oversample_silence_jitter=None, n_input=306,
                        path_norm_global_channel_zscore="assets/norm/time"):
-
+    """
+    Get train and val dataloaders with fixed splits:
+    - Train: Sherlock1 sessions 1-10 + Sherlock2 all sessions
+    - Val: Sherlock1 session 11
+    """
     if n_input == 306:
         sensors_speech_mask = ALL_SENSORS
     elif n_input == 23:
         sensors_speech_mask = SENSORS_SPEECH_MASK
 
-    def load_cached_dataset(name):
-        fold_cache = os.path.join(
-            data_path, f"cached_cv{n_cv}", f"{name}_fold{fold}.pt")
-        if os.path.exists(fold_cache):
-            print(f"[INFO] Loading cached {name} dataset for fold {fold}...")
-            return torch.load(fold_cache, weights_only=False)
-        else:
-            raise FileNotFoundError(
-                f"[ERROR] Cached file not found: {fold_cache}")
-
-    # Use TRAIN_VAL_RUN_KEYS for cross-validation split
-    full_run_keys = TRAIN_VAL_RUN_KEYS.copy()
-    total = len(full_run_keys)
-    fold_size = total // n_splits
-
-    val_start = fold * fold_size
-    val_end = val_start + fold_size
-    val_keys = full_run_keys[val_start:val_end]
-
-    train_keys = [k for i, k in enumerate(full_run_keys) if i not in range(
-        val_start, val_end)]
-
-    if use_fold_specific_cache:
-        train_data = load_cached_dataset("train")
-        val_data = load_cached_dataset("val")
-    else:
-        dataset_kwargs = {
-            "data_path": data_path,
-            "tmin": 0.0,
-            "tmax": 0.8,
-            "preload_files": True,
-        }
-        if oversample_silence_jitter is not None:
-            dataset_kwargs["oversample_silence_jitter"] = oversample_silence_jitter
-        train_data = LibriBrainSpeech(
-            include_run_keys=train_keys,
-            standardize=False,
-            **dataset_kwargs
-        )
-        val_data = LibriBrainSpeech(
-            include_run_keys=val_keys,
-            standardize=False,
-            **{k: v for k, v in dataset_kwargs.items() if k != "oversample_silence_jitter"}
-        )
+    dataset_kwargs = {
+        "data_path": data_path,
+        "tmin": 0.0,
+        "tmax": 0.5,
+        "preload_files": True,
+    }
+    
+    if oversample_silence_jitter is not None:
+        dataset_kwargs["oversample_silence_jitter"] = oversample_silence_jitter
+    
+    print(f"[INFO] Loading training data (Sherlock1 1-10 + Sherlock2 all)...")
+    train_data = LibriBrainSpeech(
+        include_run_keys=TRAIN_RUN_KEYS,
+        standardize=False,
+        **dataset_kwargs
+    )
+    
+    print(f"[INFO] Loading validation data (Sherlock1 session 11)...")
+    val_data = LibriBrainSpeech(
+        include_run_keys=VAL_RUN_KEYS,
+        standardize=False,
+        **{k: v for k, v in dataset_kwargs.items() if k != "oversample_silence_jitter"}
+    )
+    
     train_filtered = FilteredDataset(train_data, n_input=n_input)
     val_filtered = FilteredDataset(val_data, n_input=n_input)
     
@@ -140,7 +133,7 @@ def get_dataloaders(data_path, num_workers=4, fold=0, n_splits=5,
 def get_test_dataloader(data_path, num_workers=4, eval_batch_size=32, 
                         n_input=306, path_norm_global_channel_zscore="assets/norm/time"):
     """
-    Get test dataloader for Sherlock1 sessions 11-12
+    Get test dataloader for Sherlock1 session 12
     """
     if n_input == 306:
         sensors_speech_mask = ALL_SENSORS
@@ -150,7 +143,7 @@ def get_test_dataloader(data_path, num_workers=4, eval_batch_size=32,
     dataset_kwargs = {
         "data_path": data_path,
         "tmin": 0.0,
-        "tmax": 0.8,
+        "tmax": 0.5,
         "preload_files": True,
     }
     

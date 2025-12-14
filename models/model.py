@@ -28,8 +28,7 @@ class SpeechModel(nn.Module):
         self.lstm_layers = lstm_layers
 
         self.conv = nn.Conv1d(input_dim, model_dim, kernel_size=3, padding=1)
-        self.batch_norm = nn.BatchNorm1d(
-            model_dim) if batch_norm else nn.Identity()
+        self.batch_norm = nn.BatchNorm1d(model_dim) if batch_norm else nn.Identity()
         self.conv_dropout = nn.Dropout(dropout_rate)
 
         self.lstm = nn.LSTM(
@@ -64,11 +63,12 @@ class BrainSpeechClassifier(pl.LightningModule):
         self,
         input_dim,
         model_dim,
-        lr=1e-3,
+        num_classes=1,
+        lr=5e-5,
         weight_decay=0.01,
         dropout_rate=0.3,
-        smoothing=0.5,
-        pos_weight=1.0,
+        smoothing=0.0,
+        pos_weight=0.5,
         batch_norm=False,
         lstm_layers=1,
         bi_directional=False,
@@ -89,7 +89,7 @@ class BrainSpeechClassifier(pl.LightningModule):
             batch_norm=batch_norm,
         )
 
-        self.loss_fn = BCEWithLogitsLossWithSmoothing(smoothing=smoothing,pos_weight=pos_weight)
+        self.loss_fn = BCEWithLogitsLossWithSmoothing(smoothing=smoothing, pos_weight=pos_weight)
 
         self.train_f1 = F1Score(
             task='multiclass', average='macro', num_classes=2)
@@ -160,4 +160,20 @@ class BrainSpeechClassifier(pl.LightningModule):
         self.test_f1.reset()
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='max',
+            factor=0.5,
+            patience=3,
+            min_lr=1e-6
+        )
+        return {
+            'optimizer': optimizer,
+            'lr_scheduler': {
+                'scheduler': scheduler,
+                'monitor': 'val_f1_macro',
+                'interval': 'epoch',
+                'frequency': 1
+            }
+        }

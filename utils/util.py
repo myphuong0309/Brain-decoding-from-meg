@@ -1,4 +1,3 @@
-
 import os
 from datetime import datetime
 import torch.distributed as dist
@@ -10,12 +9,12 @@ from datetime import datetime
 import torch.distributed as dist
 from pytorch_lightning import loggers
 
-def get_logger_and_paths(ckpt_path, fold, timestamp=None):
+def get_logger_and_paths(ckpt_path, timestamp=None):
     if timestamp is None:
         date_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    else: date_str = date_str = timestamp
+    else: date_str = timestamp
     
-    base_dir = os.path.join(ckpt_path, f"fold_{fold}_{date_str}")
+    base_dir = os.path.join(ckpt_path, f"model_{date_str}")
     checkpoint_dir = os.path.join(base_dir, "checkpoints")
     if not dist.is_initialized() or dist.get_rank() == 0:
         os.makedirs(checkpoint_dir, exist_ok=True)

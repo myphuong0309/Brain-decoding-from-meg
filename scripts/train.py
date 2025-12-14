@@ -15,21 +15,18 @@ from utils.processed_data import get_dataloaders
 from utils.util import get_logger_and_paths, save_hparams
 
 
-def run_fold(args, fold):
-    print(f"\nRunning Fold {fold}")
+def run_training(args):
+    print(f"\n[INFO] Training with fixed train/val split")
     base_dir, logger_list = get_logger_and_paths(
-        args.ckpt_path, fold, args.timestamp)
+        args.ckpt_path, args.timestamp)
     save_hparams(base_dir, args)
 
     print(f"[INFO] Using time domain preprocessing")
     train_loader, val_loader = get_dataloaders(
         data_path=args.data_path,
         num_workers=4,
-        fold=fold,
-        n_splits=args.n_splits,
         train_batch_size=args.train_batch_size,
         eval_batch_size=args.eval_batch_size,
-        n_cv=args.n_splits,
         oversample_silence_jitter=None,
         n_input=args.model_input_size,
         path_norm_global_channel_zscore=args.path_norm_global_channel_zscore
@@ -64,6 +61,8 @@ def run_fold(args, fold):
         callbacks=[early_stopping_callback],
         default_root_dir=base_dir,
         log_every_n_steps=max(1, len(train_loader) // 10),
+        gradient_clip_val=1.0,
+        accumulate_grad_batches=2,
     )
 
     trainer.fit(model, train_loader, val_loader)
@@ -89,8 +88,7 @@ def main(args):
         with open(timestamp_file, 'r') as f:
             args.timestamp = f.read().strip()
 
-    for fold in range(args.n_splits):
-        run_fold(args, fold)
+    run_training(args)
 
 
 if __name__ == "__main__":
@@ -109,7 +107,6 @@ if __name__ == "__main__":
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--train_batch_size", type=int, default=32)
     parser.add_argument("--eval_batch_size", type=int, default=32)
-    parser.add_argument("--n_splits", type=int, default=5)
 
     # Early stopping arguments
     parser.add_argument("--early_stopping_patience", type=int, default=10,

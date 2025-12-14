@@ -208,5 +208,5 @@ class GlobalNormalizer:
 if __name__ == "__main__":
     data_path = "assets/data"
     stats = compute_global_statistics(data_path, max_samples=10000)
-    print("Computed statistics:", stats)
+    # print("Computed statistics:", stats)
     print(f"Statistics saved to: assets/norm/time/global_stats.pt")
