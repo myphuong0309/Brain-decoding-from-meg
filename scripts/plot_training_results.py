@@ -171,7 +171,7 @@ def main():
     parser = argparse.ArgumentParser(description='Plot training results from all folds')
     parser.add_argument('--output_dir', type=str, default='./output',
                         help='Directory containing fold results')
-    parser.add_argument('--timestamp', type=str, default='2025-12-14_10-03-47',
+    parser.add_argument('--timestamp', type=str, default='2025-12-14_10-51-22',
                         help='Timestamp of the training run')
     parser.add_argument('--csv_path', type=str, default='./training_results.csv',
                         help='Path to training results CSV file')

@@ -1,0 +1,42 @@
+{
+  "accuracy": 0.8164391519024107,
+  "precision": 0.8488455988455988,
+  "recall": 0.916991426344505,
+  "f1": 0.8816035968527538,
+  "f1_macro": 0.7366674315013123,
+  "precision_macro": 0.765704468573321,
+  "recall_macro": 0.719613159010337,
+  "roc_auc": 0.8476480881912493,
+  "confusion_matrix": [
+    [
+      458,
+      419
+    ],
+    [
+      213,
+      2353
+    ]
+  ],
+  "per_class": {
+    "class_0": {
+      "precision": 0.6825633383010432,
+      "recall": 0.5222348916761688,
+      "f1": 0.5917312661498708,
+      "support": 877
+    },
+    "class_1": {
+      "precision": 0.8488455988455988,
+      "recall": 0.916991426344505,
+      "f1": 0.8816035968527538,
+      "support": 2566
+    }
+  },
+  "num_models": 5,
+  "checkpoint_paths": [
+    "./output/fold_0_2025-12-14_10-51-22/version_0/checkpoints/epoch=14-step=13665.ckpt",
+    "./output/fold_1_2025-12-14_10-51-22/version_0/checkpoints/epoch=14-step=13575.ckpt",
+    "./output/fold_2_2025-12-14_10-51-22/version_0/checkpoints/epoch=14-step=14280.ckpt",
+    "./output/fold_3_2025-12-14_10-51-22/version_0/checkpoints/epoch=14-step=13890.ckpt",
+    "./output/fold_4_2025-12-14_10-51-22/version_0/checkpoints/epoch=14-step=13275.ckpt"
+  ]
+}
