@@ -1,6 +1,9 @@
-# Brain Decoding from MEG: Speech vs. Silence Classification
+# Brain Decoding from MEG: Speech Detection and Phoneme Classification
 
-This project implements a deep learning model for classifying speech versus silence from MEG (Magnetoencephalography) brain recordings using the LibriBrain dataset.
+This project implements deep learning models for two MEG-based brain decoding tasks using the LibriBrain dataset:
+
+1. **Task 1**: Binary classification of speech vs. silence
+2. **Task 2**: Multi-class phoneme classification (40 base phonemes)
 
 ## Table of Contents
 
@@ -9,62 +12,86 @@ This project implements a deep learning model for classifying speech versus sile
 - [Requirements](#requirements)
 - [Setup](#setup)
 - [Data Preparation](#data-preparation)
-- [Training](#training)
-- [Evaluation](#evaluation)
+- [Task 1: Speech Detection](#task-1-speech-detection)
+  - [Training](#training-task-1)
+  - [Evaluation](#evaluation-task-1)
+  - [Results](#results-task-1)
+- [Task 2: Phoneme Classification](#task-2-phoneme-classification)
+  - [Training](#training-task-2)
+  - [Evaluation](#evaluation-task-2)
+  - [Model Architecture](#model-architecture-task-2)
+  - [Results](#results-task-2)
 - [Visualization](#visualization)
-- [Model Architecture](#model-architecture)
-- [Results](#results)
 - [References](#references)
 
 ## Overview
 
-This project uses MEG recordings from the LibriBrain dataset to classify brain activity as either speech or silence. The model employs a CNN-LSTM architecture with attention pooling for temporal feature extraction.
+This project tackles two challenging MEG brain decoding tasks:
 
-**Key Features:**
+### Task 1: Speech vs. Silence Detection
 
-- Deep learning model with Conv1D + Bi-LSTM + Attention mechanism
-- Fixed train/validation/test split for robust evaluation
+Binary classification using CNN-LSTM architecture with attention pooling to distinguish between speech and silence brain activity patterns.
+
+### Task 2: Phoneme Classification
+
+40-class phoneme recognition from brain signals using simplified convolutional architecture with signal averaging and adaptive loss weighting.
+
+**Common Features:**
+
+- PyTorch Lightning framework for robust training
 - Global channel-wise z-score normalization
-- Learning rate scheduling and gradient clipping for stable training
-- Comprehensive evaluation metrics (F1, Precision, Recall, ROC-AUC)
-- Training visualization and analysis tools
-- Class-balanced loss function with configurable pos_weight
 
 ## Project Structure
 
-```
+````
 .
 ├── assets/
-│   ├── data/                    # MEG data directory
+│   ├── data/                    # MEG data for Task 1 (speech detection)
 │   │   ├── Sherlock1/
 │   │   ├── Sherlock2/
-│   │   ├── Sherlock3/           # (Optional) Additional training data
-│   │   ├── Sherlock4/           # (Optional) Additional training data
-│   └── norm/
+│   │   ├── Sherlock3/
+│   │   └── Sherlock4/
+│   ├── data_task2/              # MEG data for Task 2 (phoneme classification)
+│   │   ├── Sherlock1/
+│   │   └── Sherlock2/
+│   ├── norm/
+│   │   └── time/
+│   │       └── global_stats.pt  # Task 1 normalization statistics
+│   └── norm_task2/
 │       └── time/
-│           └── global_stats.pt  # Global normalization statistics
+│           └── global_stats.pt  # Task 2 normalization statistics
 ├── models/
-│   └── model.py                 # PyTorch Lightning model definition
+│   ├── model.py                 # Task 1: CNN-LSTM model
+│   └── model_task2.py           # Task 2: Phoneme classification model
 ├── scripts/
-│   ├── train.py                 # Training script
-│   ├── evaluate.py              # Evaluation script
-│   └── plot_training_results.py # Visualization script
+│   ├── train.py                 # Task 1 training
+│   ├── evaluate.py              # Task 1 evaluation
+│   ├── train_task2.py           # Task 2 training
+│   ├── evaluate_task2.py        # Task 2 evaluation
+│   └── plot_training_results.py # Visualization
 ├── utils/
-│   ├── folds.py                 # (Legacy) Data splitting and caching
+│   ├── processed_data.py        # Task 1 data loading
+│   ├── processed_data_task2.py  # Task 2 data loading with GroupedDataset
 │   ├── compute_global_stats.py  # Normalization statistics
-│   ├── processed_data.py        # Data loading and preprocessing
-│   ├── loss.py                  # Custom loss functions
 │   ├── normalization.py         # Normalization utilities
+│   ├── loss.py                  # Custom loss functions
 │   └── util.py                  # Helper functions
-├── output/                      # Training checkpoints and logs
-├── test_results/                # Test set evaluation results
+├── output/                      # Task 1 checkpoints and logs
+├── output_task2/                # Task 2 checkpoints and logs
+├── test_results/                # Task 1 evaluation results
+├── test_results_task2/          # Task 2 evaluation results
 ├── plots/                       # Generated plots
-├── train.sh                     # Training wrapper script
-├── evaluate.sh                  # Evaluation wrapper script
+├── train.sh                     # Task 1 training script
+├── evaluate.sh                  # Task 1 evaluation script
+├── train_task2.sh               # Task 2 training script
+├── evaluate_task2.sh            # Task 2 evaluation script
+├── requirements.txt             # Python dependencies
+└── README.md                    # This file
+``` evaluate.sh                  # Evaluation wrapper script
 ├── run.sh                       # Complete pipeline script
 ├── requirements.txt             # Python dependencies
 └── README.md                    # This file
-```
+````
 
 ## Requirements
 
@@ -96,9 +123,9 @@ pip install -r requirements.txt
 
 ## Data Preparation
 
-### Data Structure
+### Data Structure for Task 1
 
-Place your LibriBrain MEG data in `assets/data/` with the following structure:
+Place your LibriBrain MEG data for speech detection in `assets/data/`:
 
 ```
 assets/data/
@@ -112,18 +139,37 @@ assets/data/
         └── serialised/    # .h5 files
 ```
 
+### Data Structure for Task 2
+
+Place LibriBrainPhoneme data for phoneme classification in `assets/data_task2/`:
+
+```
+assets/data_task2/
+├── Sherlock1/
+│   └── derivatives/
+│       ├── events/        # Phoneme event files (.tsv)
+│       └── serialised/    # MEG data (.h5 files)
+└── Sherlock2/
+    └── derivatives/
+        ├── events/
+        └── serialised/
+```
+
+---
+
+## Task 1: Speech Detection
+
 ### Dataset Information
 
 - **Training**: Sherlock1 sessions 1-10 + Sherlock2 sessions 1-12 (22 sessions)
 - **Validation**: Sherlock1 session 11 (1 session)
 - **Test**: Sherlock1 session 12 (1 session)
 - **Time Window**: 0.5 seconds per sample
-- **Input Channels**:
-  - Full MEG: 306 channels
-  - Speech-specific: 23 selected channels
+- **Input Channels**: 306 MEG channels
+- **Classes**: 2 (Speech, Silence)
 - **Class Distribution**: Imbalanced (Speech >> Silence, ratio ~2.9:1)
 
-## Training
+### Training (Task 1)
 
 ### Quick Start: Complete Pipeline
 
@@ -150,6 +196,7 @@ bash train.sh
 **Default Hyperparameters:**
 
 - **Model Architecture:**
+
   - `model_dim`: 256 (hidden dimension)
   - `model_input_size`: 306 (all MEG channels)
   - `lstm_layers`: 2
@@ -158,6 +205,7 @@ bash train.sh
   - `dropout_rate`: 0.08
 
 - **Training Parameters:**
+
   - `epochs`: 15
   - `lr`: 5e-5 (learning rate with ReduceLROnPlateau scheduler)
   - `weight_decay`: 1e-2
@@ -167,6 +215,7 @@ bash train.sh
   - `accumulate_grad_batches`: 2
 
 - **Loss Function:**
+
   - BCE with Logits Loss
   - `pos_weight`: 0.5 (to handle class imbalance)
   - `label_smoothing`: 0.0
@@ -250,7 +299,7 @@ bash train.sh \
 - Patience: 3 epochs
 - Min LR: 1e-6
 
-## Evaluation
+### Evaluation (Task 1)
 
 ### Test Set Evaluation
 
@@ -289,6 +338,65 @@ Results are saved in `test_results/`:
 - Per-class metrics
 - Confusion matrix
 
+---
+
+## Task 2: Phoneme Classification
+
+### Dataset Information
+
+- **Training**: Sherlock1 sessions 1-10 + Sherlock2 all sessions
+- **Validation**: Sherlock1 session 11 run-2
+- **Test**: Sherlock1 session 12 run-2
+- **Time Window**: 0.5 seconds per sample
+- **Input Channels**: 306 MEG channels
+- **Classes**: 40 base phonemes (position markers removed)
+- **Signal Averaging**: 100 samples grouped per phoneme for improved SNR
+
+### Phoneme Label Processing
+
+The dataset originally contains 118 phoneme classes with position markers:
+- `aa_B`, `aa_I`, `aa_E` → all mapped to `aa`
+- `er_E`, `er_S` → all mapped to `er`
+
+This reduces to 40 base phoneme classes.
+
+### Training (Task 2)
+
+```bash
+bash train_task2.sh
+```
+
+**Configuration:**
+- `model_dim`: 128, `dropout`: 0.2, `lr`: 5e-4
+- `grouped_samples`: 100 (signal averaging)
+- `label_smoothing`: 0.05
+- Adaptive loss weights from competition baseline
+
+### Evaluation (Task 2)
+
+```bash
+bash evaluate_task2.sh
+```
+
+### Model Architecture (Task 2)
+
+2-layer CNN with BatchNorm and Adaptive Average Pooling:
+- Conv1D (kernel=5) → BatchNorm → ReLU → Dropout
+- Conv1D (kernel=5) → BatchNorm → ReLU → Dropout  
+- AdaptiveAvgPool1D → Flatten
+- 2-layer classifier with dropout
+- AdamW + CosineAnnealingWarmRestarts
+
+### Results (Task 2)
+
+**Target Performance** (40 base phonemes):
+- Accuracy: 20-35%
+- F1 Macro: 10-20%
+
+This is a challenging fine-grained classification from brain signals.
+
+---
+
 ## Visualization
 
 ### Generate Training Plots
@@ -305,6 +413,7 @@ python scripts/plot_training_results.py \
 ### Generated Plots
 
 1. **training_curves.png**: Individual training and validation curves
+
    - 4 subplots showing F1 score and loss for both training and validation
    - Helps identify overfitting and training dynamics
 
@@ -387,6 +496,7 @@ Output (B, 1)
 The model was evaluated on Sherlock1 session 12 (holdout test set):
 
 **Overall Metrics:**
+
 - **Accuracy**: 78.60%
 - **F1 Score (Binary)**: 85.19%
 - **F1 Score (Macro)**: 73.30%
@@ -396,17 +506,17 @@ The model was evaluated on Sherlock1 session 12 (holdout test set):
 
 **Per-Class Performance:**
 
-| Class | Precision | Recall | F1 Score | Support |
-|-------|-----------|--------|----------|---------|
-| **Silence (0)** | 56.82% | 66.80% | 61.41% | 723 |
-| **Speech (1)** | 87.92% | 82.63% | 85.19% | 2113 |
+| Class           | Precision | Recall | F1 Score | Support |
+| --------------- | --------- | ------ | -------- | ------- |
+| **Silence (0)** | 56.82%    | 66.80% | 61.41%   | 723     |
+| **Speech (1)**  | 87.92%    | 82.63% | 85.19%   | 2113    |
 
 **Confusion Matrix:**
 
-|                | Predicted Silence | Predicted Speech |
-|----------------|-------------------|------------------|
-| **Actual Silence** | 483 | 240 |
-| **Actual Speech** | 367 | 1746 |
+|                    | Predicted Silence | Predicted Speech |
+| ------------------ | ----------------- | ---------------- |
+| **Actual Silence** | 483               | 240              |
+| **Actual Speech**  | 367               | 1746             |
 
 ### Training Configuration Used
 
