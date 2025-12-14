@@ -578,8 +578,6 @@ bash evaluate_task2.sh
 - DOI: [10.1109/78.650093](https://doi.org/10.1109/78.650093)
 
 8. **Attention Mechanisms**
-- Bahdanau, D., et al. (2015). "Neural machine translation by jointly learning to align and translate." _ICLR 2015_.
-- URL: [https://arxiv.org/abs/1409.0473](https://arxiv.org/abs/1409.0473)
 - Vaswani, A., et al. (2017). "Attention is all you need." _NeurIPS 2017_, 5998-6008.
 - URL: [https://arxiv.org/abs/1706.03762](https://arxiv.org/abs/1706.03762)
 
