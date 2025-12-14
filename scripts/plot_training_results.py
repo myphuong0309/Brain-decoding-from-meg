@@ -167,88 +167,11 @@ def plot_aggregate_curves(df, save_path=None):
     
     return fig
 
-
-def plot_final_comparison(csv_path, save_path=None):
-    """Plot final comparison of best results across folds"""
-    df = pd.read_csv(csv_path)
-    
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    fig.suptitle('Best Performance Comparison Across Folds', fontsize=16, fontweight='bold')
-    
-    folds = df['fold'].values
-    x = np.arange(len(folds))
-    width = 0.35
-    
-    # Plot 1: F1 Scores
-    ax = axes[0]
-    bars1 = ax.bar(x - width/2, df['best_val_f1'], width, label='Validation', 
-                   color='#2E86AB', alpha=0.8)
-    bars2 = ax.bar(x + width/2, df['best_train_f1'], width, label='Training', 
-                   color='#A23B72', alpha=0.8)
-    
-    # Add mean line
-    ax.axhline(y=df['best_val_f1'].mean(), color='#2E86AB', linestyle='--', 
-               linewidth=2, label=f'Val Mean: {df["best_val_f1"].mean():.4f}')
-    ax.axhline(y=df['best_train_f1'].mean(), color='#A23B72', linestyle='--', 
-               linewidth=2, label=f'Train Mean: {df["best_train_f1"].mean():.4f}')
-    
-    ax.set_xlabel('Fold', fontsize=12)
-    ax.set_ylabel('F1 Score (Macro)', fontsize=12)
-    ax.set_title('Best F1 Scores per Fold', fontsize=13, fontweight='bold')
-    ax.set_xticks(x)
-    ax.set_xticklabels(folds)
-    ax.legend(fontsize=10)
-    ax.grid(True, alpha=0.3, axis='y')
-    
-    # Add value labels on bars
-    for bars in [bars1, bars2]:
-        for bar in bars:
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height,
-                   f'{height:.4f}', ha='center', va='bottom', fontsize=8)
-    
-    # Plot 2: Loss
-    ax = axes[1]
-    bars1 = ax.bar(x - width/2, df['best_val_loss'], width, label='Validation', 
-                   color='#2E86AB', alpha=0.8)
-    bars2 = ax.bar(x + width/2, df['best_train_loss'], width, label='Training', 
-                   color='#A23B72', alpha=0.8)
-    
-    # Add mean line
-    ax.axhline(y=df['best_val_loss'].mean(), color='#2E86AB', linestyle='--', 
-               linewidth=2, label=f'Val Mean: {df["best_val_loss"].mean():.4f}')
-    ax.axhline(y=df['best_train_loss'].mean(), color='#A23B72', linestyle='--', 
-               linewidth=2, label=f'Train Mean: {df["best_train_loss"].mean():.4f}')
-    
-    ax.set_xlabel('Fold', fontsize=12)
-    ax.set_ylabel('Loss', fontsize=12)
-    ax.set_title('Best Loss per Fold', fontsize=13, fontweight='bold')
-    ax.set_xticks(x)
-    ax.set_xticklabels(folds)
-    ax.legend(fontsize=10)
-    ax.grid(True, alpha=0.3, axis='y')
-    
-    # Add value labels on bars
-    for bars in [bars1, bars2]:
-        for bar in bars:
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height,
-                   f'{height:.4f}', ha='center', va='bottom', fontsize=8)
-    
-    plt.tight_layout()
-    
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Saved comparison plot to: {save_path}")
-    
-    return fig
-
-
 def main():
     parser = argparse.ArgumentParser(description='Plot training results from all folds')
     parser.add_argument('--output_dir', type=str, default='./output',
                         help='Directory containing fold results')
-    parser.add_argument('--timestamp', type=str, default='2025-11-15_18-46-12',
+    parser.add_argument('--timestamp', type=str, default='2025-12-14_10-03-47',
                         help='Timestamp of the training run')
     parser.add_argument('--csv_path', type=str, default='./training_results.csv',
                         help='Path to training results CSV file')
@@ -277,10 +200,6 @@ def main():
     # Plot 2: Aggregated curves with mean and std
     print("Generating aggregated curves plot...")
     plot_aggregate_curves(df, save_path=os.path.join(args.save_dir, 'aggregated_curves.png'))
-    
-    # Plot 3: Final comparison
-    print("Generating comparison plot...")
-    plot_final_comparison(args.csv_path, save_path=os.path.join(args.save_dir, 'fold_comparison.png'))
     
     print("\n✓ All plots generated successfully!")
     print(f"Plots saved to: {args.save_dir}/")

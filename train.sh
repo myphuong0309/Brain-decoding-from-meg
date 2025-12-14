@@ -7,8 +7,8 @@ set -e
 DATA_PATH=${1:-"./assets/data"}
 CKPT_PATH=${2:-"./output"}
 EPOCHS=${3:-15}
-MODEL_DIM=${4:-128}
-MODEL_INPUT=${5:-23}  # 23 for speech sensors, 306 for all sensors
+MODEL_DIM=${4:-256}
+MODEL_INPUT=${5:-306}  # 23 for speech sensors, 306 for all sensors
 LR=${6:-1e-5}
 DROPOUT=${7:-0.2}
 LSTM_LAYERS=${8:-2}

@@ -6,7 +6,7 @@ set -e
 # Parse command line arguments
 CKPT_BASE_PATH=${1:-"./output"}
 DATA_PATH=${2:-"./assets/data"}
-MODEL_INPUT=${3:-23}  # 23 for speech sensors, 306 for all sensors
+MODEL_INPUT=${3:-306}  # 23 for speech sensors, 306 for all sensors
 EVAL_BATCH_SIZE=${4:-32}
 OUTPUT_DIR=${5:-"./test_results"}
 PATH_NORM=${6:-"assets/norm/time"}
