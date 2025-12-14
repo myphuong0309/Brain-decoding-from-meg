@@ -604,34 +604,24 @@ bash evaluate_task2.sh
 - Schirrmeister, R. T., et al. (2017). "Deep learning with convolutional neural networks for EEG decoding and visualization." _Human Brain Mapping_, 38(11), 5391-5420.
 - DOI: [10.1002/hbm.23730](https://doi.org/10.1002/hbm.23730)
 
-12. **Signal Averaging for Noise Reduction**
-
-- Luck, S. J. (2014). "An Introduction to the Event-Related Potential Technique." _MIT Press_, 2nd edition.
-- ISBN: 978-0262525855
-
-- Szegedy, C., et al. (2016). "Rethinking the inception architecture for computer vision." _CVPR 2016_, 2818-2826.
-- URL: [https://arxiv.org/abs/1512.00567](https://arxiv.org/abs/1512.00567)
-
-13. **Class Imbalance and Cost-Sensitive Learning**
-    - King, G., & Zeng, L. (2001). "Logistic regression in rare events data." _Political Analysis_, 9(2), 137-163.
-    - DOI: [10.1093/oxfordjournals.pan.a004868](https://doi.org/10.1093/oxfordjournals.pan.a004868)
+12. **Class Imbalance and Cost-Sensitive Learning**
+- King, G., & Zeng, L. (2001). "Logistic regression in rare events data." _Political Analysis_, 9(2), 137-163.
+- DOI: [10.1093/oxfordjournals.pan.a004868](https://doi.org/10.1093/oxfordjournals.pan.a004868)
 
 ### Frameworks and Tools
 
-14. **Cosine Annealing Learning Rate Schedule**
-    - Loshchilov, I., & Hutter, F. (2017). "SGDR: Stochastic gradient descent with warm restarts." _ICLR 2017_.
-    - URL: [https://arxiv.org/abs/1608.03983](https://arxiv.org/abs/1608.03983)
+13. **Cosine Annealing Learning Rate Schedule**
+- Loshchilov, I., & Hutter, F. (2017). "SGDR: Stochastic gradient descent with warm restarts." _ICLR 2017_.
+- Link: [https://arxiv.org/abs/1608.03983](https://arxiv.org/abs/1608.03983)
 
 ### Machine Learning Techniques
 
-15. **Label Smoothing**
-
-    - Szegedy, C., et al. (2016). "Rethinking the inception architecture for computer vision." _CVPR 2016_, 2818-2826.
-    - URL: [https://arxiv.org/abs/1512.00567](https://arxiv.org/abs/1512.00567)
+14. **Label Smoothing**
+- Szegedy, C., et al. (2016). "Rethinking the inception architecture for computer vision." _CVPR 2016_, 2818-2826.
+- Link: [https://arxiv.org/abs/1512.00567](https://arxiv.org/abs/1512.00567)
 
 ### Frameworks and Tools
 
-16. **PyTorch Lightning**
-
-    - Falcon, W., et al. (2019). "PyTorch Lightning." _GitHub repository_.
-    - URL: [https://github.com/Lightning-AI/lightning](https://github.com/Lightning-AI/lightning)
+15. **PyTorch Lightning**
+- Falcon, W., et al. (2019). "PyTorch Lightning." _GitHub repository_.
+- Link: [https://github.com/Lightning-AI/lightning](https://github.com/Lightning-AI/lightning)
