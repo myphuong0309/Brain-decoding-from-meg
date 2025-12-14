@@ -12,16 +12,21 @@ This project implements deep learning models for two MEG-based brain decoding ta
 - [Requirements](#requirements)
 - [Setup](#setup)
 - [Data Preparation](#data-preparation)
+  - [Data Structure for Task 1](#data-structure-for-task-1)
+  - [Data Structure for Task 2](#data-structure-for-task-2)
 - [Task 1: Speech Detection](#task-1-speech-detection)
-  - [Training](#training-task-1)
-  - [Evaluation](#evaluation-task-1)
-  - [Results](#results-task-1)
+  - [Dataset Information](#dataset-information)
+  - [Training (Task 1)](#training-task-1)
+  - [Model Architecture (Task 1)](#model-architecture-task-1)
+  - [Evaluation (Task 1)](#evaluation-task-1)
+  - [Results (Task 1)](#results-task-1)
 - [Task 2: Phoneme Classification](#task-2-phoneme-classification)
-  - [Training](#training-task-2)
-  - [Evaluation](#evaluation-task-2)
-  - [Model Architecture](#model-architecture-task-2)
-  - [Results](#results-task-2)
-- [Visualization](#visualization)
+  - [Dataset Information](#dataset-information-1)
+  - [Phoneme Label Processing](#phoneme-label-processing)
+  - [Model Architecture (Task 2)](#model-architecture-task-2)
+  - [Training (Task 2)](#training-task-2)
+  - [Evaluation (Task 2)](#evaluation-task-2)
+  - [Results (Task 2)](#results-task-2)
 - [References](#references)
 
 ## Overview
@@ -43,7 +48,7 @@ Binary classification using CNN-LSTM architecture with attention pooling to dist
 
 ## Project Structure
 
-````
+```
 .
 ├── assets/
 │   ├── data/                    # MEG data for Task 1 (speech detection)
@@ -85,13 +90,10 @@ Binary classification using CNN-LSTM architecture with attention pooling to dist
 ├── evaluate.sh                  # Task 1 evaluation script
 ├── train_task2.sh               # Task 2 training script
 ├── evaluate_task2.sh            # Task 2 evaluation script
-├── requirements.txt             # Python dependencies
-└── README.md                    # This file
-``` evaluate.sh                  # Evaluation wrapper script
 ├── run.sh                       # Complete pipeline script
 ├── requirements.txt             # Python dependencies
 └── README.md                    # This file
-````
+```
 
 ## Requirements
 
@@ -185,46 +187,6 @@ This script executes:
 2. Model training (single train/val split)
 3. Test set evaluation
 
-### Training Configuration
-
-The current optimized configuration uses:
-
-```bash
-bash train.sh
-```
-
-**Default Hyperparameters:**
-
-- **Model Architecture:**
-
-  - `model_dim`: 256 (hidden dimension)
-  - `model_input_size`: 306 (all MEG channels)
-  - `lstm_layers`: 2
-  - `bi_directional`: Yes (enabled)
-  - `batch_norm`: Yes (enabled)
-  - `dropout_rate`: 0.08
-
-- **Training Parameters:**
-
-  - `epochs`: 15
-  - `lr`: 5e-5 (learning rate with ReduceLROnPlateau scheduler)
-  - `weight_decay`: 1e-2
-  - `train_batch_size`: 32 (effective: 64 with gradient accumulation)
-  - `eval_batch_size`: 32
-  - `gradient_clip_val`: 1.0
-  - `accumulate_grad_batches`: 2
-
-- **Loss Function:**
-
-  - BCE with Logits Loss
-  - `pos_weight`: 0.5 (to handle class imbalance)
-  - `label_smoothing`: 0.0
-
-- **Early Stopping:**
-  - `monitor`: val_f1_macro
-  - `patience`: 10 epochs
-  - `min_delta`: 0.001
-
 ### Manual Training Steps
 
 #### Step 1: Compute Global Normalization Statistics
@@ -299,9 +261,64 @@ bash train.sh \
 - Patience: 3 epochs
 - Min LR: 1e-6
 
-### Evaluation (Task 1)
+### Model Architecture (Task 1)
 
-### Test Set Evaluation
+The model uses a hybrid **CNN-LSTM architecture with attention pooling** for binary speech vs. silence classification:
+
+```
+Input (Batch, 306 Channels, 125 Timepoints)
+    ↓
+Conv1D (kernel_size=3, out_channels=model_dim)
+    ↓
+BatchNorm1D (optional)
+    ↓
+ReLU + Dropout
+    ↓
+Bidirectional LSTM (2 layers, hidden_dim=model_dim)
+    ↓
+Attention Pooling (learned weights)
+    ↓
+Dropout
+    ↓
+Linear Classifier (model_dim → 1)
+    ↓
+Output (Batch, 1) - Speech probability
+```
+
+**Architecture Components:**
+
+1. **Convolutional Layer:**
+
+   - 1D convolution (kernel=3) extracts local temporal features
+   - Maps 306 MEG channels to `model_dim` (256) feature channels
+   - Optional batch normalization for training stability
+
+2. **Bidirectional LSTM (2 layers):**
+
+   - Captures long-range temporal dependencies in both directions
+   - Hidden dimension: 256
+   - Processes sequence forward and backward for richer representations
+   - Dropout between layers prevents overfitting
+
+3. **Attention Pooling:**
+
+   - Learned attention mechanism weighs important time steps
+   - Query vector learns which temporal features are most discriminative
+   - Reduces variable-length sequence to fixed-size representation
+   - Formula: `attention_weights = softmax(Q · LSTM_output^T)`
+
+4. **Classification Head:**
+   - Single linear layer: `model_dim → 1`
+   - BCEWithLogitsLoss with `pos_weight=0.5` for class imbalance
+   - Sigmoid activation for binary probability output
+
+**Model Statistics:**
+
+- Total parameters: ~2.1M (with model_dim=256, 306 input channels)
+- Training time: ~15-20 min/epoch on RTX 4060
+- Inference speed: ~500 samples/sec
+
+### Evaluation (Task 1)
 
 Evaluate on the holdout test set (Sherlock1 session 12):
 
@@ -322,21 +339,65 @@ bash evaluate.sh \
   ""                         # USE_CPU (pass "--cpu" if true)
 ```
 
-### Evaluation Outputs
+### Results (Task 1)
 
-Results are saved in `test_results/`:
+The model was evaluated on Sherlock1 session 12 (holdout test set):
 
-- `metrics.json`: Complete evaluation metrics
-- `confusion_matrix.png`: Confusion matrix visualization
-- `roc_curve.png`: ROC curve with AUC score
+**Overall Metrics:**
 
-**Metrics Computed:**
+- **Accuracy**: 77.72%
+- **F1 Score (Binary)**: 84.62%
+- **F1 Score (Macro)**: 72.10%
+- **ROC-AUC**: 81.29%
+- **Precision (Macro)**: 71.26%
+- **Recall (Macro)**: 73.35%
 
-- Accuracy
-- Precision, Recall, F1 (binary and macro-averaged)
-- ROC-AUC
-- Per-class metrics
-- Confusion matrix
+**Per-Class Performance:**
+
+| Class           | Precision | Recall | F1 Score | Support |
+| --------------- | --------- | ------ | -------- | ------- |
+| **Silence (0)** | 55.41%    | 64.45% | 59.59%   | 723     |
+| **Speech (1)**  | 87.12%    | 82.25% | 84.62%   | 2113    |
+
+**Confusion Matrix:**
+
+|                    | Predicted Silence | Predicted Speech |
+| ------------------ | ----------------- | ---------------- |
+| **Actual Silence** | 466               | 257              |
+| **Actual Speech**  | 375               | 1738             |
+
+**Training Configuration:**
+
+- Model dimension: 256
+- Input channels: 306 (all MEG sensors)
+- Bidirectional LSTM: Yes
+- Batch normalization: Yes
+- Learning rate: 5e-5 (with ReduceLROnPlateau)
+- Dropout: 0.08
+- Weight decay: 1e-2
+- pos_weight: 0.5
+- Training data: Sherlock1 (1-10) + Sherlock2 (1-12) = 22 sessions
+- Validation: Sherlock1 session 11
+- Test: Sherlock1 session 12
+
+**Key Findings:**
+
+- Strong classification performance on speech detection (F1: 84.62%)
+- Moderate performance on silence detection (F1: 59.59%) due to class imbalance
+- Bidirectional LSTM with attention effectively captures temporal patterns
+- Learning rate scheduling and gradient clipping ensure stable training
+- 306 full MEG sensors provide comprehensive brain activity coverage
+
+**Test Results Visualization:**
+
+<p align="center">
+  <img src="test_results/confusion_matrix.png" alt="Task 1 Confusion Matrix" width="45%"/>
+  <img src="test_results/roc_curve.png" alt="Task 1 ROC Curve" width="45%"/>
+</p>
+
+<p align="center">
+  <em>Left: Confusion Matrix showing classification performance. Right: ROC curve with AUC = 81.29%</em>
+</p>
 
 ---
 
@@ -355,10 +416,34 @@ Results are saved in `test_results/`:
 ### Phoneme Label Processing
 
 The dataset originally contains 118 phoneme classes with position markers:
+
 - `aa_B`, `aa_I`, `aa_E` → all mapped to `aa`
 - `er_E`, `er_S` → all mapped to `er`
 
 This reduces to 40 base phoneme classes.
+
+### Model Architecture (Task 2)
+
+2-layer CNN with BatchNorm and Adaptive Average Pooling:
+
+- Conv1D (kernel=5) → BatchNorm → ReLU → Dropout
+- AdaptiveAvgPool1D → Flatten
+- 2-layer classifier with dropout
+- AdamW + CosineAnnealingWarmRestarts
+
+**Adaptive Loss Weights** (from competition baseline):
+
+The model uses class-specific loss weights to handle phoneme frequency imbalance:
+
+| Phoneme | Weight | Phoneme | Weight | Phoneme | Weight | Phoneme | Weight |
+| ------- | ------ | ------- | ------ | ------- | ------ | ------- | ------ |
+| uh      | 10.0   | ay      | 3.0    | uw      | 3.0    | sh      | 3.0    |
+| m       | 3.0    | ae      | 3.0    | s       | 0.8    | ey      | 0.05   |
+| ih      | 2.0    | n       | 2.0    | t       | 2.0    | k       | 2.0    |
+| r       | 2.0    | l       | 2.0    | d       | 2.0    | er      | 1.5    |
+| Others  | 1.0    |         |        |         |        |         |        |
+
+This helps the model focus more on underrepresented phonemes during training.
 
 ### Training (Task 2)
 
@@ -367,6 +452,7 @@ bash train_task2.sh
 ```
 
 **Configuration:**
+
 - `model_dim`: 128, `dropout`: 0.2, `lr`: 5e-4
 - `grouped_samples`: 100 (signal averaging)
 - `label_smoothing`: 0.05
@@ -378,178 +464,64 @@ bash train_task2.sh
 bash evaluate_task2.sh
 ```
 
-### Model Architecture (Task 2)
-
-2-layer CNN with BatchNorm and Adaptive Average Pooling:
-- Conv1D (kernel=5) → BatchNorm → ReLU → Dropout
-- Conv1D (kernel=5) → BatchNorm → ReLU → Dropout  
-- AdaptiveAvgPool1D → Flatten
-- 2-layer classifier with dropout
-- AdamW + CosineAnnealingWarmRestarts
-
 ### Results (Task 2)
 
-**Target Performance** (40 base phonemes):
-- Accuracy: 20-35%
-- F1 Macro: 10-20%
-
-This is a challenging fine-grained classification from brain signals.
-
----
-
-## Visualization
-
-### Generate Training Plots
-
-After training, visualize the results:
-
-```bash
-python scripts/plot_training_results.py \
-  --output_dir "./output" \
-  --timestamp "2025-11-15_18-46-12" \
-  --save_dir "./plots"
-```
-
-### Generated Plots
-
-1. **training_curves.png**: Individual training and validation curves
-
-   - 4 subplots showing F1 score and loss for both training and validation
-   - Helps identify overfitting and training dynamics
-
-2. **combined_metrics.png**: Combined training vs validation comparison
-   - 2 subplots comparing train/val F1 and loss side-by-side
-   - Useful for understanding model convergence
-
-## Model Architecture
-
-### Overview
-
-The model uses a hybrid CNN-LSTM architecture with attention pooling:
-
-```
-Input (B, C, T)
-    ↓
-Conv1D (kernel_size=3)
-    ↓
-BatchNorm (optional)
-    ↓
-Dropout
-    ↓
-Bi-LSTM (2 layers)
-    ↓
-Attention Pooling
-    ↓
-Dropout
-    ↓
-Linear Classifier
-    ↓
-Output (B, 1)
-```
-
-### Components
-
-**1. Convolutional Layer:**
-
-- 1D convolution with kernel size 3
-- Extracts local temporal patterns
-- Batch normalization (optional)
-
-**2. Bidirectional LSTM:**
-
-- Captures long-range temporal dependencies
-- Bidirectional: processes sequence forward and backward
-- 2 layers with dropout between layers
-
-**3. Attention Pooling:**
-
-- Learned attention mechanism
-- Weights important time steps
-- Reduces sequence to fixed-size representation
-
-**4. Classification Head:**
-
-- Single linear layer
-- Binary classification (speech vs. silence)
-- BCEWithLogitsLoss with optional label smoothing
-- Configurable pos_weight for class imbalance handling
-
-### Loss Function
-
-**BCEWithLogitsLoss with Class Balancing:**
-
-- Handles class imbalance via pos_weight parameter
-- Optional label smoothing to prevent overconfident predictions
-- Current configuration: pos_weight=0.5, smoothing=0.0
-
-### Training Stability Features
-
-1. **Learning Rate Scheduler**: ReduceLROnPlateau reduces LR when val_f1_macro plateaus
-2. **Gradient Clipping**: Clips gradients to max norm of 1.0 to prevent exploding gradients
-3. **Gradient Accumulation**: Accumulates gradients over 2 batches for effective batch size of 64
-4. **Early Stopping**: Stops training if no improvement for 10 consecutive epochs
-
-## Results
-
-### Test Set Performance
-
-The model was evaluated on Sherlock1 session 12 (holdout test set):
+**Test Set Performance** (40 base phonemes, 137 test samples):
 
 **Overall Metrics:**
 
-- **Accuracy**: 78.60%
-- **F1 Score (Binary)**: 85.19%
-- **F1 Score (Macro)**: 73.30%
-- **ROC-AUC**: 83.39%
-- **Precision (Macro)**: 72.37%
-- **Recall (Macro)**: 74.72%
+- **Accuracy**: 7.30%
+- **F1 Score (Macro)**: 2.20%
+- **F1 Score (Weighted)**: 5.25%
+- **Precision (Macro)**: 1.79%
+- **Recall (Macro)**: 3.47%
 
-**Per-Class Performance:**
+**Training Configuration:**
 
-| Class           | Precision | Recall | F1 Score | Support |
-| --------------- | --------- | ------ | -------- | ------- |
-| **Silence (0)** | 56.82%    | 66.80% | 61.41%   | 723     |
-| **Speech (1)**  | 87.92%    | 82.63% | 85.19%   | 2113    |
-
-**Confusion Matrix:**
-
-|                    | Predicted Silence | Predicted Speech |
-| ------------------ | ----------------- | ---------------- |
-| **Actual Silence** | 483               | 240              |
-| **Actual Speech**  | 367               | 1746             |
-
-### Training Configuration Used
-
-- Model dimension: 256
-- Input channels: 306 (all MEG sensors)
-- Bidirectional LSTM: Yes
-- Batch normalization: Yes
-- Learning rate: 5e-5 (with ReduceLROnPlateau)
-- Dropout: 0.08
-- Weight decay: 1e-2
-- pos_weight: 0.5
-- Training data: Sherlock1 (1-10) + Sherlock2 (1-12) = 22 sessions
+- Model dimension: 128
+- Input channels: 306 MEG channels
+- Architecture: 2-layer CNN with BatchNorm
+- Learning rate: 5e-4 (with CosineAnnealingWarmRestarts)
+- Dropout: 0.2
+- Weight decay: 1e-5
+- Signal averaging: 100 samples/phoneme
+- Training data: Sherlock1 (1-10) + Sherlock2 all sessions (~2,400 samples)
 - Validation: Sherlock1 session 11
 - Test: Sherlock1 session 12
-- Time window: 0.5 seconds
 
-### Visualization
+**Status & Challenges:**
 
-Training curves show stable convergence with the learning rate scheduler effectively reducing LR when performance plateaus. The model demonstrates good generalization with validation metrics closely tracking training metrics.
+- Model is currently underperforming due to training interruption
+- Limited training data (~60 samples/class after grouping)
+- Very challenging 40-class fine-grained discrimination from brain signals
+- Requires completion of full 100-epoch training for target 15-25% accuracy
 
-![Training Curves](plots/training_curves.png)
-![Combined Metrics](plots/combined_metrics.png)
-![Confusion Matrix](test_results/confusion_matrix.png)
-![ROC Curve](test_results/roc_curve.png)
+**Improvement Strategies:**
 
-### Key Findings
+- Complete full training without interruption
+- Further model simplification or data augmentation
+- Consider reducing to top-N most frequent phonemes
+- Ensemble multiple models with different seeds
 
-- Strong classification performance on speech detection (F1: 85.19%)
-- Moderate performance on silence detection (F1: 61.41%) due to class imbalance
-- Bidirectional LSTM with attention effectively captures temporal patterns
-- Learning rate scheduling and gradient clipping ensure stable training
-- 306 full MEG sensors provide comprehensive brain activity coverage
-- Class balancing via pos_weight improves minority class (silence) recall
+**Test Results Visualization:**
+
+<p align="center">
+  <img src="test_results_task2/confusion_matrix_task2.png" alt="Task 2 Confusion Matrix" width="70%"/>
+</p>
+
+<p align="center">
+  <em>Confusion Matrix for 40-class phoneme classification (showing top 50 most frequent predictions)</em>
+</p>
+
+<p align="center">
+  <img src="test_results_task2/per_class_f1_task2.png" alt="Task 2 Per-Class F1 Scores" width="85%"/>
+</p>
+
+<p align="center">
+  <em>Per-class F1 scores showing performance variation across 40 phoneme classes</em>
+</p>
+
+---
 
 ## References
 
@@ -570,53 +542,77 @@ Training curves show stable convergence with the learning rate scheduler effecti
    - DOI: [10.1038/s41593-020-0608-8](https://doi.org/10.1038/s41593-020-0608-8)
 
 4. **Speech Perception from MEG**
+
    - Brodbeck, C., et al. (2018). "Rapid transformation from auditory to linguistic representations of continuous speech." _Current Biology_, 28(24), 3976-3983.
    - DOI: [10.1016/j.cub.2018.10.042](https://doi.org/10.1016/j.cub.2018.10.042)
 
+5. **Phoneme Decoding from Brain Signals**
+   - Herff, C., et al. (2015). "Brain-to-text: decoding spoken phrases from phone representations in the brain." _Frontiers in Neuroscience_, 9, 217.
+   - DOI: [10.3389/fnins.2015.00217](https://doi.org/10.3389/fnins.2015.00217)
+
 ### Deep Learning Architectures
 
-5. **LSTM Networks**
+6. **LSTM Networks**
 
    - Hochreiter, S., & Schmidhuber, J. (1997). "Long short-term memory." _Neural Computation_, 9(8), 1735-1780.
    - DOI: [10.1162/neco.1997.9.8.1735](https://doi.org/10.1162/neco.1997.9.8.1735)
 
-6. **Bidirectional RNNs**
+7. **Bidirectional RNNs**
 
    - Schuster, M., & Paliwal, K. K. (1997). "Bidirectional recurrent neural networks." _IEEE Transactions on Signal Processing_, 45(11), 2673-2681.
    - DOI: [10.1109/78.650093](https://doi.org/10.1109/78.650093)
 
-7. **Attention Mechanisms**
+8. **Attention Mechanisms**
+
    - Bahdanau, D., et al. (2015). "Neural machine translation by jointly learning to align and translate." _ICLR 2015_.
    - URL: [https://arxiv.org/abs/1409.0473](https://arxiv.org/abs/1409.0473)
    - Vaswani, A., et al. (2017). "Attention is all you need." _NeurIPS 2017_, 5998-6008.
    - URL: [https://arxiv.org/abs/1706.03762](https://arxiv.org/abs/1706.03762)
 
+9. **Batch Normalization**
+   - Ioffe, S., & Szegedy, C. (2015). "Batch normalization: Accelerating deep network training by reducing internal covariate shift." _ICML 2015_, 448-456.
+   - URL: [https://arxiv.org/abs/1502.03167](https://arxiv.org/abs/1502.03167)
+
 ### Neural Signal Processing
 
-8. **Deep Learning for Neural Decoding**
+10. **Convolutional Neural Networks for EEG/MEG**
 
-   - Glaser, J. I., et al. (2020). "Machine learning for neural decoding." _eNeuro_, 7(4).
-   - DOI: [10.1523/ENEURO.0506-19.2020](https://doi.org/10.1523/ENEURO.0506-19.2020)
+- Glaser, J. I., et al. (2020). "Machine learning for neural decoding." _eNeuro_, 7(4).
+- DOI: [10.1523/ENEURO.0506-19.2020](https://doi.org/10.1523/ENEURO.0506-19.2020)
 
-9. **Convolutional Neural Networks for EEG/MEG**
+11. **Temporal Convolutional Networks**
 
-   - Schirrmeister, R. T., et al. (2017). "Deep learning with convolutional neural networks for EEG decoding and visualization." _Human Brain Mapping_, 38(11), 5391-5420.
-   - DOI: [10.1002/hbm.23730](https://doi.org/10.1002/hbm.23730)
+- Schirrmeister, R. T., et al. (2017). "Deep learning with convolutional neural networks for EEG decoding and visualization." _Human Brain Mapping_, 38(11), 5391-5420.
+- DOI: [10.1002/hbm.23730](https://doi.org/10.1002/hbm.23730)
 
-10. **Temporal Convolutional Networks**
-    - Lea, C., et al. (2017). "Temporal convolutional networks for action segmentation and detection." _CVPR 2017_, 156-165.
-    - URL: [https://arxiv.org/abs/1611.05267](https://arxiv.org/abs/1611.05267)
+12. **Signal Averaging for Noise Reduction**
+
+- Luck, S. J. (2014). "An Introduction to the Event-Related Potential Technique." _MIT Press_, 2nd edition.
+- ISBN: 978-0262525855
+
+- Szegedy, C., et al. (2016). "Rethinking the inception architecture for computer vision." _CVPR 2016_, 2818-2826.
+- URL: [https://arxiv.org/abs/1512.00567](https://arxiv.org/abs/1512.00567)
+
+13. **Class Imbalance and Cost-Sensitive Learning**
+    - King, G., & Zeng, L. (2001). "Logistic regression in rare events data." _Political Analysis_, 9(2), 137-163.
+    - DOI: [10.1093/oxfordjournals.pan.a004868](https://doi.org/10.1093/oxfordjournals.pan.a004868)
+
+### Frameworks and Tools
+
+14. **Cosine Annealing Learning Rate Schedule**
+    - Loshchilov, I., & Hutter, F. (2017). "SGDR: Stochastic gradient descent with warm restarts." _ICLR 2017_.
+    - URL: [https://arxiv.org/abs/1608.03983](https://arxiv.org/abs/1608.03983)
 
 ### Machine Learning Techniques
 
-11. **Label Smoothing**
+15. **Label Smoothing**
 
     - Szegedy, C., et al. (2016). "Rethinking the inception architecture for computer vision." _CVPR 2016_, 2818-2826.
     - URL: [https://arxiv.org/abs/1512.00567](https://arxiv.org/abs/1512.00567)
 
 ### Frameworks and Tools
 
-12. **PyTorch Lightning**
+16. **PyTorch Lightning**
 
     - Falcon, W., et al. (2019). "PyTorch Lightning." _GitHub repository_.
     - URL: [https://github.com/Lightning-AI/lightning](https://github.com/Lightning-AI/lightning)
