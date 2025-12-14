@@ -504,17 +504,9 @@ Training curves show stable convergence with the learning rate scheduler effecti
     - Szegedy, C., et al. (2016). "Rethinking the inception architecture for computer vision." _CVPR 2016_, 2818-2826.
     - URL: [https://arxiv.org/abs/1512.00567](https://arxiv.org/abs/1512.00567)
 
-12. **Cross-Validation**
-    - Kohavi, R. (1995). "A study of cross-validation and bootstrap for accuracy estimation and model selection." _IJCAI_, 14(2), 1137-1145.
-    - URL: [https://www.ijcai.org/Proceedings/95-2/Papers/016.pdf](https://www.ijcai.org/Proceedings/95-2/Papers/016.pdf)
-
 ### Frameworks and Tools
 
-13. **PyTorch Lightning**
+12. **PyTorch Lightning**
 
     - Falcon, W., et al. (2019). "PyTorch Lightning." _GitHub repository_.
     - URL: [https://github.com/Lightning-AI/lightning](https://github.com/Lightning-AI/lightning)
-
-14. **PyTorch**
-    - Paszke, A., et al. (2019). "PyTorch: An imperative style, high-performance deep learning library." _NeurIPS 2019_, 8024-8035.
-    - URL: [https://arxiv.org/abs/1912.01703](https://arxiv.org/abs/1912.01703)
